@@ -58,9 +58,7 @@ import { useRouter } from 'vue-router'
 import IndexPage from '../components/IndexPage.vue'
 import CategoryPage from '../components/CategoryPage.vue'
 import CartPage from '../components/CartPage.vue'
-
-// 为了演示，先创建简单的占位组件，实际开发可以拆分为独立文件
-const ProfilePage = { template: '<div class="placeholder-page">个人中心信息展示</div>' }
+import ProfilePage from '../components/ProfilePage.vue'
 
 const router = useRouter()
 const username = ref('User')

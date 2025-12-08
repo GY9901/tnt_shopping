@@ -11,6 +11,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -27,7 +28,6 @@ public class ProductController {
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "4") Integer size) {
 
-        // 构建分页对象 (Spring Data JPA 页码从0开始，所以前端传1要减1)
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by("id").descending());
 
         Page<Product> pageResult;
@@ -42,5 +42,11 @@ public class ProductController {
         data.put("total", pageResult.getTotalElements());
 
         return Result.success(data);
+    }
+
+    // [新增] 管理员获取所有商品 (不分页)
+    @GetMapping("/all")
+    public Result<List<Product>> all() {
+        return Result.success(productRepository.findAll(Sort.by(Sort.Direction.DESC, "id")));
     }
 }

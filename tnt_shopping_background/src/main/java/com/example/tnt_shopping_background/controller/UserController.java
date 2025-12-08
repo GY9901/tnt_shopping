@@ -6,6 +6,8 @@ import com.example.tnt_shopping_background.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/user")
 public class UserController {
@@ -37,5 +39,37 @@ public class UserController {
         }
         userRepository.save(user);
         return Result.success(null);
+    }
+
+    // 更新用户信息 (支持修改密码)
+    @PostMapping("/update")
+    public Result<?> update(@RequestBody Map<String, Object> payload) {
+        Integer id = (Integer) payload.get("id");
+        String oldPassword = (String) payload.get("oldPassword");
+        String newPassword = (String) payload.get("password");
+
+        if (id == null) {
+            return Result.error("400", "用户ID不能为空");
+        }
+
+        User dbUser = userRepository.findById(id).orElse(null);
+        if (dbUser == null) {
+            return Result.error("404", "用户不存在");
+        }
+
+        // 如果提供了旧密码，则进行校验（用于修改密码场景）
+        if (oldPassword != null && !oldPassword.isEmpty()) {
+            if (!dbUser.getPassword().equals(oldPassword)) {
+                return Result.error("401", "当前密码错误");
+            }
+        }
+
+        // 修改新密码
+        if (newPassword != null && !newPassword.isEmpty()) {
+            dbUser.setPassword(newPassword);
+        }
+
+        userRepository.save(dbUser);
+        return Result.success(dbUser);
     }
 }

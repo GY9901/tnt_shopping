@@ -8,7 +8,6 @@
 
     <!-- 购物车列表 -->
     <div class="cart-list" v-loading="loading">
-
       <!-- 空状态 -->
       <div v-if="!loading && cartList.length === 0" class="empty-cart">
         <div class="empty-text">YOUR CART IS EMPTY</div>
@@ -61,7 +60,7 @@
       </div>
     </div>
 
-    <!-- 底部结算栏 (吸底) -->
+    <!-- 底部结算栏 -->
     <div class="checkout-bar">
       <div class="bar-left" @click="toggleSelectAll">
         <div class="custom-checkbox" :class="{ checked: isAllSelected && cartList.length > 0 }">
@@ -78,25 +77,84 @@
             {{ totalPrice.toFixed(2) }}
           </div>
         </div>
-        <button class="checkout-btn" @click="handleCheckout" :disabled="selection.length === 0">
+        <button class="checkout-btn" @click="openPaymentDialog" :disabled="selection.length === 0">
           CHECKOUT ({{ selection.length }})
         </button>
       </div>
     </div>
+
+    <!-- 支付弹窗 -->
+    <el-dialog
+        v-model="paymentVisible"
+        title="CASHIER / 收银台"
+        width="500px"
+        :show-close="false"
+        class="tnt-dialog"
+        align-center
+    >
+      <div class="payment-content">
+        <div class="order-summary">
+          <div class="summary-title">ORDER SUMMARY</div>
+          <div class="summary-list">
+            <div v-for="item in selectedItems" :key="item.id" class="summary-item">
+              <span class="s-name">{{ item.product.name }} x{{ item.quantity }}</span>
+              <span class="s-price">¥ {{ (item.product.price * item.quantity).toFixed(2) }}</span>
+            </div>
+          </div>
+          <div class="summary-total">
+            <span>TOTAL</span>
+            <span class="s-total-price">¥ {{ totalPrice.toFixed(2) }}</span>
+          </div>
+        </div>
+
+        <div class="payment-method">
+          <div class="method-title">PAYMENT METHOD</div>
+          <div
+              class="method-option"
+              :class="{ active: payMethod === 'alipay' }"
+              @click="payMethod = 'alipay'"
+          >
+            <span class="icon alipay">支</span>
+            <span>Alipay / 支付宝</span>
+            <el-icon class="check-icon" v-if="payMethod === 'alipay'"><Select /></el-icon>
+          </div>
+          <div
+              class="method-option"
+              :class="{ active: payMethod === 'wechat' }"
+              @click="payMethod = 'wechat'"
+          >
+            <span class="icon wechat">微</span>
+            <span>WeChat Pay / 微信支付</span>
+            <el-icon class="check-icon" v-if="payMethod === 'wechat'"><Select /></el-icon>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <button class="btn-cancel" @click="paymentVisible = false">CANCEL</button>
+          <button class="btn-confirm" @click="handlePay" :disabled="isPaying">
+            {{ isPaying ? 'PROCESSING...' : 'PAY NOW' }}
+          </button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, onMounted, getCurrentInstance } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Delete, Check } from '@element-plus/icons-vue'
+import { Delete, Check, Select } from '@element-plus/icons-vue'
 
 const { proxy } = getCurrentInstance()
 
 const loading = ref(false)
 const cartList = ref([])
-const selection = ref([]) // 存储被选中的购物车ID
+const selection = ref([])
 const currentUser = ref('')
+const paymentVisible = ref(false)
+const payMethod = ref('alipay')
+const isPaying = ref(false)
 
 // 获取用户信息
 const getUser = () => {
@@ -118,6 +176,8 @@ const fetchCart = async () => {
     })
     if (res.data.code === '200') {
       cartList.value = res.data.data
+      // 清空已不存在的选中项
+      selection.value = []
     }
   } catch (e) {
     ElMessage.error('加载购物车失败')
@@ -126,23 +186,24 @@ const fetchCart = async () => {
   }
 }
 
+// 计算选中的商品对象列表
+const selectedItems = computed(() => {
+  return cartList.value.filter(item => selection.value.includes(item.id))
+})
+
 // 计算总价
 const totalPrice = computed(() => {
   let total = 0
-  cartList.value.forEach(item => {
-    if (selection.value.includes(item.id)) {
-      total += item.product.price * item.quantity
-    }
+  selectedItems.value.forEach(item => {
+    total += item.product.price * item.quantity
   })
   return total
 })
 
-// 全选状态
 const isAllSelected = computed(() => {
   return cartList.value.length > 0 && selection.value.length === cartList.value.length
 })
 
-// 切换单选
 const toggleSelect = (id) => {
   const idx = selection.value.indexOf(id)
   if (idx > -1) {
@@ -152,7 +213,6 @@ const toggleSelect = (id) => {
   }
 }
 
-// 切换全选
 const toggleSelectAll = () => {
   if (isAllSelected.value) {
     selection.value = []
@@ -161,7 +221,6 @@ const toggleSelectAll = () => {
   }
 }
 
-// 修改数量
 const changeQty = async (item, delta) => {
   const newQty = item.quantity + delta
   if (newQty < 1) return
@@ -171,13 +230,12 @@ const changeQty = async (item, delta) => {
       id: item.id,
       quantity: newQty
     })
-    item.quantity = newQty // 前端更新
+    item.quantity = newQty
   } catch (e) {
     ElMessage.error('更新失败')
   }
 }
 
-// 删除商品
 const deleteItem = (id) => {
   ElMessageBox.confirm('确定要移除该商品吗?', '提示', {
     confirmButtonText: '移除',
@@ -187,9 +245,7 @@ const deleteItem = (id) => {
     try {
       await proxy.$request.delete(`/cart/delete/${id}`)
       ElMessage.success('已移除')
-      // 从列表中移除
       cartList.value = cartList.value.filter(item => item.id !== id)
-      // 从选中状态移除
       const idx = selection.value.indexOf(id)
       if (idx > -1) selection.value.splice(idx, 1)
     } catch (e) {
@@ -198,19 +254,58 @@ const deleteItem = (id) => {
   })
 }
 
-// 结算
-const handleCheckout = () => {
-  if (selection.value.length === 0) return
-  ElMessage.success(`结算成功！共支付 ¥${totalPrice.value.toFixed(2)}`)
-  // 这里可以扩展为跳转订单确认页逻辑
-}
-
-// 辅助：图片背景
 const getBg = (product) => {
   if (product && product.imageUrl) {
     return { backgroundImage: `url(${product.imageUrl})`, backgroundSize: 'cover' }
   }
   return { backgroundColor: '#FAD02C' }
+}
+
+// 打开支付弹窗
+const openPaymentDialog = () => {
+  if (selection.value.length === 0) return
+  paymentVisible.value = true
+}
+
+// 确认支付
+const handlePay = async () => {
+  isPaying.value = true
+
+  // 构造后端需要的订单数据
+  const orderData = {
+    username: currentUser.value,
+    totalAmount: totalPrice.value,
+    paymentMethod: payMethod.value.toUpperCase(), // 发送支付方式 (ALIPAY / WECHAT)
+    cartIds: selection.value,
+    items: selectedItems.value.map(item => ({
+      productName: item.product.name,
+      productImg: item.product.imageUrl,
+      price: item.product.price,
+      quantity: item.quantity
+    }))
+  }
+
+  try {
+    // 模拟网络延迟体验更好
+    setTimeout(async () => {
+      const res = await proxy.$request.post('/order/create', orderData)
+      if (res.data.code === '200') {
+        ElMessage.success({
+          message: 'PAYMENT SUCCESSFUL / 支付成功',
+          duration: 2000
+        })
+        paymentVisible.value = false
+        fetchCart() // 刷新购物车，已买商品会自动消失
+      } else {
+        ElMessage.error(res.data.msg || '下单失败')
+      }
+      isPaying.value = false
+    }, 1000)
+
+  } catch (e) {
+    ElMessage.error('网络异常')
+    isPaying.value = false
+  }
 }
 
 onMounted(() => {
@@ -225,7 +320,7 @@ onMounted(() => {
   max-width: 1000px;
   margin: 0 auto;
   min-height: 600px;
-  padding-bottom: 100px; /* 留出底部结算栏空间 */
+  padding-bottom: 100px;
 }
 
 /* 头部 */
@@ -481,5 +576,161 @@ onMounted(() => {
   background: #CCC;
   color: #FFF;
   cursor: not-allowed;
+}
+
+/* --- 支付弹窗样式 --- */
+.order-summary {
+  background: #F9F9F9;
+  padding: 15px;
+  border: 1px dashed #CCC;
+  margin-bottom: 20px;
+}
+
+.summary-title {
+  font-weight: 900;
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 10px;
+  letter-spacing: 1px;
+}
+
+.summary-list {
+  max-height: 150px;
+  overflow-y: auto;
+  margin-bottom: 15px;
+  padding-right: 5px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #555;
+}
+
+.summary-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 2px solid #000;
+  padding-top: 10px;
+  font-weight: 900;
+}
+
+.s-total-price {
+  font-family: 'Anton', sans-serif;
+  font-size: 24px;
+  color: #000;
+}
+
+.method-title {
+  font-weight: 900;
+  font-size: 14px;
+  margin-bottom: 15px;
+}
+
+.method-option {
+  border: 2px solid #EEE;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.method-option:hover {
+  border-color: #CCC;
+}
+
+.method-option.active {
+  border-color: #000;
+  background: #FFFCF0;
+}
+
+.method-option .icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFF;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 14px;
+}
+.method-option .alipay { background: #1677FF; }
+.method-option .wechat { background: #07C160; }
+
+.check-icon {
+  position: absolute;
+  right: 15px;
+  color: #000;
+  font-size: 18px;
+}
+
+.dialog-footer {
+  display: flex;
+  gap: 15px;
+}
+
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  height: 44px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border: 2px solid #000;
+}
+
+.btn-cancel {
+  background: #FFF;
+  color: #000;
+}
+.btn-cancel:hover {
+  background: #F0F0F0;
+}
+
+.btn-confirm {
+  background: #000;
+  color: #FAD02C;
+}
+.btn-confirm:hover {
+  background: #FAD02C;
+  color: #000;
+}
+.btn-confirm:disabled {
+  background: #999;
+  color: #DDD;
+  cursor: not-allowed;
+  border-color: #999;
+}
+
+/* 覆盖 Element Dialog 默认样式 */
+:deep(.tnt-dialog) {
+  border-radius: 0;
+  border: 4px solid #000;
+  box-shadow: 10px 10px 0 rgba(0,0,0,0.2);
+}
+:deep(.tnt-dialog .el-dialog__header) {
+  border-bottom: 2px solid #000;
+  margin-right: 0;
+  padding: 20px;
+}
+:deep(.tnt-dialog .el-dialog__title) {
+  font-family: 'Anton', sans-serif;
+  font-size: 24px;
+  color: #000;
+  letter-spacing: 1px;
+}
+:deep(.tnt-dialog .el-dialog__body) {
+  padding: 20px;
+}
+:deep(.tnt-dialog .el-dialog__footer) {
+  padding: 20px;
+  border-top: 2px solid #000;
 }
 </style>

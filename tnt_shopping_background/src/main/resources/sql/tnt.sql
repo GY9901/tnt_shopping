@@ -113,3 +113,52 @@ CREATE TABLE `sys_cart` (
     -- 联合唯一索引，确保同一个用户对同一个商品只有一条记录
                             UNIQUE KEY `uk_user_product` (`username`, `product_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='购物车表';
+
+-- 订单主表
+DROP TABLE IF EXISTS `sys_order`;
+CREATE TABLE `sys_order` (
+                             `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                             `order_no` VARCHAR(50) NOT NULL COMMENT '订单号',
+                             `username` VARCHAR(50) NOT NULL COMMENT '下单用户',
+                             `total_amount` DECIMAL(10,2) NOT NULL COMMENT '总金额',
+                             `status` VARCHAR(20) DEFAULT 'COMPLETED' COMMENT '状态: PENDING/COMPLETED/CANCELLED',
+                             `create_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                             PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单表';
+
+-- 订单商品详情表
+DROP TABLE IF EXISTS `sys_order_item`;
+CREATE TABLE `sys_order_item` (
+                                  `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                                  `order_id` INT NOT NULL COMMENT '关联订单ID',
+                                  `product_name` VARCHAR(100) COMMENT '商品名称快照',
+                                  `product_img` VARCHAR(255) COMMENT '图片快照',
+                                  `price` DECIMAL(10,2) COMMENT '购买单价',
+                                  `quantity` INT COMMENT '购买数量',
+                                  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单详情表';
+
+-- 订单主表
+DROP TABLE IF EXISTS `sys_order`;
+CREATE TABLE `sys_order` (
+                             `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                             `order_no` VARCHAR(50) NOT NULL COMMENT '订单号',
+                             `username` VARCHAR(50) NOT NULL COMMENT '下单用户',
+                             `total_amount` DECIMAL(10,2) NOT NULL COMMENT '总金额',
+                             `payment_method` VARCHAR(20) DEFAULT 'ALIPAY' COMMENT '支付方式: ALIPAY/WECHAT',
+                             `status` VARCHAR(20) DEFAULT 'COMPLETED' COMMENT '状态',
+                             `create_time` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                             PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单表';
+
+-- 订单商品详情表
+DROP TABLE IF EXISTS `sys_order_item`;
+CREATE TABLE `sys_order_item` (
+                                  `id` INT NOT NULL AUTO_INCREMENT COMMENT '主键',
+                                  `order_id` INT NOT NULL COMMENT '关联订单ID',
+                                  `product_name` VARCHAR(100) COMMENT '商品名称快照',
+                                  `product_img` VARCHAR(255) COMMENT '图片快照',
+                                  `price` DECIMAL(10,2) COMMENT '购买单价',
+                                  `quantity` INT COMMENT '购买数量',
+                                  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单详情表';
