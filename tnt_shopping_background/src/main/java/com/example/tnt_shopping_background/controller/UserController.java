@@ -4,8 +4,12 @@ import com.example.tnt_shopping_background.common.Result;
 import com.example.tnt_shopping_background.entity.User;
 import com.example.tnt_shopping_background.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.Map;
 
 @RestController
@@ -71,5 +75,54 @@ public class UserController {
 
         userRepository.save(dbUser);
         return Result.success(dbUser);
+    }
+
+
+    @GetMapping("/{id}")
+    public Result<?> getById(@PathVariable Integer id) {
+        return Result.success(userRepository.findById(id).orElse(null));
+    }
+
+    // --- 管理员接口 ---
+
+    /**
+     * 获取用户列表，支持根据用户名模糊搜索和分页
+     * @param username (可选) 用户名关键词
+     * @param pageNum (可选) 页码，默认1
+     * @param pageSize (可选) 每页大小，默认10
+     * @return 分页后的用户列表
+     */
+    @GetMapping("/all")
+    public Result<?> getAllUsers(@RequestParam(required = false) String username,
+                              @RequestParam(defaultValue = "1") Integer pageNum,
+                              @RequestParam(defaultValue = "10") Integer pageSize) {
+        // 构建分页对象，注意 Spring Data JPA 的页码是从 0 开始的，所以要减 1
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize);
+
+        Page<User> page;
+        if (username != null && !username.isEmpty()) {
+            // 如果提供了 username 参数，则进行模糊查询 + 分页
+            page = userRepository.findByUsernameContaining(username, pageable);
+        } else {
+            // 否则查询所有 + 分页
+            page = userRepository.findAll(pageable);
+        }
+
+        Map<String, Object> data = new HashMap<>();
+        data.put("list", page.getContent());
+        data.put("total", page.getTotalElements());
+        return Result.success(data);
+    }
+
+    @DeleteMapping("/delete/{id}")
+    public Result<?> deleteUser(@PathVariable Integer id) {
+        userRepository.deleteById(id);
+        return Result.success(null);
+    }
+
+    @PutMapping("/admin/update")
+    public Result<?> adminUpdateUser(@RequestBody User user) {
+        userRepository.save(user);
+        return Result.success(null);
     }
 }

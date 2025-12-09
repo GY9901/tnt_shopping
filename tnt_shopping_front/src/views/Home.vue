@@ -59,9 +59,11 @@ import IndexPage from '../components/IndexPage.vue'
 import CategoryPage from '../components/CategoryPage.vue'
 import CartPage from '../components/CartPage.vue'
 import ProfilePage from '../components/ProfilePage.vue'
+import AdminProfilePage from '../components/AdminProfilePage.vue'
 
 const router = useRouter()
 const username = ref('User')
+const userRole = ref('User')
 const currentTab = ref('Index') // 默认首页
 
 // 计算当前应该渲染哪个组件
@@ -70,7 +72,10 @@ const currentComponent = computed(() => {
     case 'Index': return IndexPage
     case 'Category': return CategoryPage
     case 'Cart': return CartPage
-    case 'Profile': return ProfilePage
+    case 'Profile':
+      if(userRole.value === 'admin')
+        return AdminProfilePage
+      return ProfilePage
     default: return IndexPage
   }
 })
@@ -81,6 +86,7 @@ onMounted(() => {
     try {
       const user = JSON.parse(userStr)
       username.value = user.username
+      userRole.value = user.role
     } catch (e) {
       router.push('/login')
     }
