@@ -95,13 +95,69 @@
         />
       </div>
     </div>
+
+    <!-- 支付弹窗 -->
+    <el-dialog
+        v-model="paymentVisible"
+        title="CASHIER / 收银台"
+        width="500px"
+        :show-close="false"
+        class="tnt-dialog"
+        align-center
+    >
+      <div class="payment-content">
+        <div class="order-summary">
+          <div class="summary-title">ORDER SUMMARY</div>
+          <div class="summary-list">
+            <div class="summary-item">
+              <span class="s-name">{{ selectedProduct?.name }} x{{ buyQuantity }}</span>
+              <span class="s-price">¥ {{ (selectedProduct?.price * buyQuantity).toFixed(2) }}</span>
+            </div>
+          </div>
+          <div class="summary-total">
+            <span>TOTAL</span>
+            <span class="s-total-price">¥ {{ totalPrice.toFixed(2) }}</span>
+          </div>
+        </div>
+
+        <div class="payment-method">
+          <div class="method-title">PAYMENT METHOD</div>
+          <div
+              class="method-option"
+              :class="{ active: payMethod === 'alipay' }"
+              @click="payMethod = 'alipay'"
+          >
+            <span class="icon alipay">支</span>
+            <span>Alipay / 支付宝</span>
+            <el-icon class="check-icon" v-if="payMethod === 'alipay'"><Select /></el-icon>
+          </div>
+          <div
+              class="method-option"
+              :class="{ active: payMethod === 'wechat' }"
+              @click="payMethod = 'wechat'"
+          >
+            <span class="icon wechat">微</span>
+            <span>WeChat Pay / 微信支付</span>
+            <el-icon class="check-icon" v-if="payMethod === 'wechat'"><Select /></el-icon>
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="dialog-footer">
+          <button class="btn-cancel" @click="paymentVisible = false">CANCEL</button>
+          <button class="btn-confirm" @click="handlePay" :disabled="isPaying">
+            {{ isPaying ? 'PROCESSING...' : 'PAY NOW' }}
+          </button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, getCurrentInstance } from 'vue'
+import { ref, onMounted, getCurrentInstance, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import { CaretRight } from '@element-plus/icons-vue'
+import { CaretRight, Select } from '@element-plus/icons-vue'
 
 const { proxy } = getCurrentInstance()
 
@@ -111,6 +167,19 @@ const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(4) // 每页4个
 const total = ref(0)
+
+// 立即购买相关
+const paymentVisible = ref(false)
+const payMethod = ref('alipay')
+const isPaying = ref(false)
+const selectedProduct = ref(null)
+const buyQuantity = ref(1)
+
+// 计算总价
+const totalPrice = computed(() => {
+  if (!selectedProduct.value) return 0
+  return selectedProduct.value.price * buyQuantity.value
+})
 
 // 模拟图片背景色数组
 const bgColors = ['#FAD02C', '#FFD166', '#FFFCF0', '#E0E0E0']
@@ -180,7 +249,60 @@ const addToCart = async (item) => {
 }
 
 const buyNow = (item) => {
-  ElMessage.success(`准备购买: ${item.name}`)
+  selectedProduct.value = item
+  buyQuantity.value = 1
+  paymentVisible.value = true
+}
+
+// 确认支付
+const handlePay = async () => {
+  if (!selectedProduct.value) return
+  
+  isPaying.value = true
+  
+  const userStr = localStorage.getItem('user')
+  if (!userStr) {
+    ElMessage.warning('请先登录')
+    isPaying.value = false
+    return
+  }
+  
+  const user = JSON.parse(userStr)
+  
+  // 构造后端需要的订单数据
+  const orderData = {
+    username: user.username,
+    totalAmount: totalPrice.value,
+    paymentMethod: payMethod.value.toUpperCase(),
+    items: [{
+      productName: selectedProduct.value.name,
+      productImg: selectedProduct.value.imageUrl,
+      price: selectedProduct.value.price,
+      quantity: buyQuantity.value,
+      productId: selectedProduct.value.id
+    }]
+  }
+  
+  try {
+    // 模拟网络延迟体验更好
+    setTimeout(async () => {
+      const res = await proxy.$request.post('/order/create', orderData)
+      if (res.data.code === '200') {
+        ElMessage.success({
+          message: 'PAYMENT SUCCESSFUL / 支付成功',
+          duration: 2000
+        })
+        paymentVisible.value = false
+      } else {
+        ElMessage.error(res.data.msg || '下单失败')
+      }
+      isPaying.value = false
+    }, 1000)
+    
+  } catch (e) {
+    ElMessage.error('网络异常')
+    isPaying.value = false
+  }
 }
 
 onMounted(() => {
@@ -448,6 +570,162 @@ onMounted(() => {
   margin-top: 30px;
   display: flex;
   justify-content: center;
+}
+
+/* --- 支付弹窗样式 --- */
+.order-summary {
+  background: #F9F9F9;
+  padding: 15px;
+  border: 1px dashed #CCC;
+  margin-bottom: 20px;
+}
+
+.summary-title {
+  font-weight: 900;
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 10px;
+  letter-spacing: 1px;
+}
+
+.summary-list {
+  max-height: 150px;
+  overflow-y: auto;
+  margin-bottom: 15px;
+  padding-right: 5px;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  margin-bottom: 8px;
+  color: #555;
+}
+
+.summary-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-top: 2px solid #000;
+  padding-top: 10px;
+  font-weight: 900;
+}
+
+.s-total-price {
+  font-family: 'Anton', sans-serif;
+  font-size: 24px;
+  color: #000;
+}
+
+.method-title {
+  font-weight: 900;
+  font-size: 14px;
+  margin-bottom: 15px;
+}
+
+.method-option {
+  border: 2px solid #EEE;
+  padding: 15px;
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  cursor: pointer;
+  margin-bottom: 10px;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.method-option:hover {
+  border-color: #CCC;
+}
+
+.method-option.active {
+  border-color: #000;
+  background: #FFFCF0;
+}
+
+.method-option .icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #FFF;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 14px;
+}
+.method-option .alipay { background: #1677FF; }
+.method-option .wechat { background: #07C160; }
+
+.check-icon {
+  position: absolute;
+  right: 15px;
+  color: #000;
+  font-size: 18px;
+}
+
+.dialog-footer {
+  display: flex;
+  gap: 15px;
+}
+
+.btn-cancel, .btn-confirm {
+  flex: 1;
+  height: 44px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  cursor: pointer;
+  border: 2px solid #000;
+}
+
+.btn-cancel {
+  background: #FFF;
+  color: #000;
+}
+.btn-cancel:hover {
+  background: #F0F0F0;
+}
+
+.btn-confirm {
+  background: #000;
+  color: #FAD02C;
+}
+.btn-confirm:hover {
+  background: #FAD02C;
+  color: #000;
+}
+.btn-confirm:disabled {
+  background: #999;
+  color: #DDD;
+  cursor: not-allowed;
+  border-color: #999;
+}
+
+/* 覆盖 Element Dialog 默认样式 */
+:deep(.tnt-dialog) {
+  border-radius: 0;
+  border: 4px solid #000;
+  box-shadow: 10px 10px 0 rgba(0,0,0,0.2);
+}
+:deep(.tnt-dialog .el-dialog__header) {
+  border-bottom: 2px solid #000;
+  margin-right: 0;
+  padding: 20px;
+}
+:deep(.tnt-dialog .el-dialog__title) {
+  font-family: 'Anton', sans-serif;
+  font-size: 24px;
+  color: #000;
+  letter-spacing: 1px;
+}
+:deep(.tnt-dialog .el-dialog__body) {
+  padding: 20px;
+}
+:deep(.tnt-dialog .el-dialog__footer) {
+  padding: 20px;
+  border-top: 2px solid #000;
 }
 
 /* 覆盖 Element Pagination 为黑黄风格 */

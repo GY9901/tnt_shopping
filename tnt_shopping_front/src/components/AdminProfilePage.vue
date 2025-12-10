@@ -33,6 +33,22 @@
           <i class="el-icon-s-order"></i>
           <span>订单管理 / ORDERS</span>
         </div>
+        <div
+            class="nav-item"
+            :class="{ active: activeMenu === 'comment' }"
+            @click="handleMenuSelect('comment')"
+        >
+          <i class="el-icon-chat-dot-square"></i>
+          <span>评论管理 / COMMENTS</span>
+        </div>
+        <div
+            class="nav-item"
+            :class="{ active: activeMenu === 'about' }"
+            @click="handleMenuSelect('about')"
+        >
+          <i class="el-icon-info-filled"></i>
+          <span>关于网站 / ABOUT</span>
+        </div>
 
         <div class="nav-spacer"></div>
       </div>
@@ -242,7 +258,6 @@
             <el-table-column prop="orderNo" label="ORDER NO" width="150"></el-table-column>
             <el-table-column prop="username" label="USER" width="80"></el-table-column>
             <el-table-column prop="paymentMethod" label="PAY METHOD" width="80"></el-table-column>
-            <el-table-column prop="quantity" label="ORDER INFO" width="100"></el-table-column>
             <el-table-column prop="totalAmount" label="TOTAL PRICE" width="120">
               <template v-slot="scope">¥ {{ scope.row.totalAmount }}</template>
             </el-table-column>
@@ -277,6 +292,94 @@
                 @current-change="handlePageChange"
                 class="tnt-pagination"
             />
+          </div>
+        </div>
+      </div>
+
+      <!-- 评论管理模块 -->
+      <div v-if="activeMenu === 'comment'" class="content-section">
+        <div class="header-row">
+          <h2 class="section-title">COMMENT MANAGEMENT / 评论管理</h2>
+        </div>
+        
+        <!-- 搜索栏 -->
+        <div class="search-panel">
+          <div class="search-item">
+            <span class="search-label">USER NAME:</span>
+            <el-input
+                v-model="searchCommentUsername"
+                placeholder="请输入用户名称搜索..."
+                class="tnt-input"
+                @keyup.enter="searchComments"
+                clearable
+                @clear="searchComments">
+            </el-input>
+          </div>
+          <div class="search-actions">
+            <button class="tnt-btn primary" @click="searchComments">
+              <i class="el-icon-search"></i> SEARCH
+            </button>
+            <button class="tnt-btn" @click="resetCommentSearch">
+              <i class="el-icon-refresh"></i> RESET
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <el-table
+              :data="commentList"
+              style="width: 100%"
+              header-row-class-name="tnt-table-header"
+              row-class-name="tnt-table-row"
+              v-loading="loading">
+            <el-table-column prop="id" label="ID" width="50"></el-table-column>
+            <el-table-column prop="username" label="USER" width="100"></el-table-column>
+            <el-table-column prop="content" label="COMMENT CONTENT" min-width="300"></el-table-column>
+            <el-table-column prop="createTime" label="COMMENT TIME" width="150">
+              <template v-slot="scope">{{ formatDate(scope.row.createTime) }}</template>
+            </el-table-column>
+            <el-table-column label="操作" width="100">
+              <template v-slot="scope">
+                <button class="tnt-btn-sm danger" @click="deleteComment(scope.row)">删除</button>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <!-- 评论分页组件 -->
+          <div style="padding: 20px; text-align: right;">
+            <el-pagination
+                background
+                layout="prev, pager, next"
+                :total="total"
+                :page-size="pageSize"
+                :current-page="currentPage"
+                @current-change="handlePageChange"
+                class="tnt-pagination"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 关于模块 -->
+      <div v-if="activeMenu === 'about'" class="content-section">
+        <h2 class="section-title">ABOUT TNT SPACE</h2>
+        <div class="about-content">
+          <p class="highlight">TEENS IN TIMES (TNT)</p>
+          <p>时代少年团（Teens in Times、TNT）是由时代峰峻推出的中国内地男子演唱组合。</p>
+          <p>本网站是粉丝自制交流与周边模拟购物平台，旨在为爆米花们提供一个集展示、交流、模拟下单于一体的空间。</p>
+
+          <div class="tech-stack">
+            <h4>TECH STACK</h4>
+            <div class="tags">
+              <span>Vue 3</span>
+              <span>Spring Boot</span>
+              <span>MySQL</span>
+              <span>Element Plus</span>
+            </div>
+          </div>
+
+          <div class="copyright">
+            &copy; 2025 TNT FAN CLUB. DESIGNED FOR POPCORN.
           </div>
         </div>
       </div>
@@ -371,6 +474,10 @@ export default {
       // 订单数据
       orderList: [],
       username: '',
+      
+      // 评论数据
+      commentList: [],
+      searchCommentUsername: '',
 
       // 弹窗控制
       userDialogVisible: false,
@@ -403,6 +510,7 @@ export default {
       if (index === 'user') this.loadUsers();
       if (index === 'product') this.loadProducts();
       if (index === 'order') this.loadOrders();
+      if (index === 'comment') this.loadComments();
     },
     handlePageChange(page) {
       this.currentPage = page;
@@ -468,6 +576,75 @@ export default {
       this.username = '';
       this.currentPage = 1;
       this.loadOrders();
+    },
+    
+    // 加载评论列表
+    async loadComments() {
+      this.loading = true;
+      try {
+        const res = await axios.get('http://localhost:9090/message/admin/list', {
+          params: {
+            pageNum: this.currentPage,
+            pageSize: this.pageSize,
+            username: this.searchCommentUsername
+          }
+        });
+
+        if (res.data.code === '200') {
+          this.commentList = res.data.data.list;
+          this.total = res.data.data.total;
+        } else {
+          this.$message.error('获取评论列表失败');
+        }
+      } catch (e) {
+        console.error(e);
+        this.$message.error('网络请求错误');
+      } finally {
+        this.loading = false;
+      }
+    },
+    
+    // 评论搜索
+    searchComments() {
+      this.currentPage = 1;
+      this.loadComments();
+    },
+    
+    // 重置评论搜索
+    resetCommentSearch() {
+      this.searchCommentUsername = '';
+      this.currentPage = 1;
+      this.loadComments();
+    },
+    
+    // 删除评论
+    async deleteComment(comment) {
+      try {
+        // 提示确认删除
+        await this.$confirm('确定要删除这个评论吗？', '删除确认', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        });
+        
+        // 调用后端API删除评论
+        const res = await axios.delete(`http://localhost:9090/message/admin/delete/${comment.id}`);
+
+        if (res.data.code === '200') {
+          // 显示删除成功提示
+          this.$message.success('删除成功');
+          
+          // 从本地评论列表中移除
+          this.commentList = this.commentList.filter(item => item.id !== comment.id);
+          this.total--;
+        } else {
+          this.$message.error('删除失败');
+        }
+      } catch (e) {
+        if (e === 'cancel') return; // 用户取消删除操作
+        console.error(e);
+        this.$message.error('网络请求错误');
+      }
     },
     // 发货操作
     async shipOrder(order) {
@@ -1060,6 +1237,49 @@ export default {
   background-color: #FAD02C;
   color: #000;
   border-color: #000;
+}
+
+/* 关于界面样式 */
+.about-content {
+  font-size: 15px;
+  line-height: 1.8;
+  padding: 20px;
+  background: #FFF;
+  border: 2px solid #000;
+  margin-top: 20px;
+}
+.about-content .highlight {
+  font-weight: 900;
+  font-size: 24px;
+  margin-bottom: 20px;
+  background: #FAD02C;
+  display: inline-block;
+  padding: 0 5px;
+}
+.tech-stack {
+  margin-top: 40px;
+  border: 2px solid #000;
+  padding: 20px;
+  background: #FAFAFA;
+}
+.tech-stack h4 {
+  margin-top: 0;
+  font-family: 'Anton';
+}
+.tags span {
+  background: #000;
+  color: #FFF;
+  padding: 4px 10px;
+  font-size: 12px;
+  margin-right: 10px;
+  font-weight: bold;
+}
+.copyright {
+  margin-top: 30px;
+  font-size: 12px;
+  color: #BBB;
+  font-weight: bold;
+  text-align: center;
 }
 
 /* 弹窗覆盖 */
