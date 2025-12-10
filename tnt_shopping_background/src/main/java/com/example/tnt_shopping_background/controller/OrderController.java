@@ -34,11 +34,11 @@ public class OrderController {
     // 获取用户的订单列表 (分页版)
     @GetMapping("/list")
     public Result<Map<String, Object>> list(
-            @RequestParam String username,
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "5") Integer size) {
+            @RequestParam(required = false) String username,
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "5") Integer pageSize) {
 
-        Pageable pageable = PageRequest.of(page - 1, size);
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize);
         Page<Order> orderPage = orderRepository.findByUsernameOrderByCreateTimeDesc(username, pageable);
 
         Map<String, Object> data = new HashMap<>();

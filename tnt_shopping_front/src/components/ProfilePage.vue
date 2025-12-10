@@ -282,8 +282,8 @@ const fetchOrders = async () => {
     const res = await proxy.$request.get('/order/list', {
       params: {
         username: user.value.username,
-        page: orderPage.value,
-        size: orderPageSize.value
+        pageNum: orderPage.value,
+        pageSize: orderPageSize.value
       }
     })
     if (res.data.code === '200') {

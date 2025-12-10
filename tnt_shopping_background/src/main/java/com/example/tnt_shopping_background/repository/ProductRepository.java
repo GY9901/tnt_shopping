@@ -7,5 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ProductRepository extends JpaRepository<Product, Integer> {
     // 根据分类查询商品 (支持分页)
-    Page<Product> findByCategory(String category, Pageable pageable);
+    Page<Product> findByNameContaining(String name, Pageable pageable);
+    Product findByName(String name);
 }

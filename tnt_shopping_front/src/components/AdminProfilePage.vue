@@ -15,7 +15,7 @@
             @click="handleMenuSelect('user')"
         >
           <i class="el-icon-user-solid"></i>
-          <span>用户管理 / USERS</span>
+          <span>个人用户信息 / USERS</span>
         </div>
         <div
             class="nav-item"
@@ -23,15 +23,18 @@
             @click="handleMenuSelect('product')"
         >
           <i class="el-icon-s-goods"></i>
-          <span>商品管理 / PRODUCTS</span>
+          <span>商品信息管理 / PRODUCTS</span>
+        </div>
+        <div
+            class="nav-item"
+            :class="{ active: activeMenu === 'order' }"
+            @click="handleMenuSelect('order')"
+        >
+          <i class="el-icon-s-order"></i>
+          <span>订单管理 / ORDERS</span>
         </div>
 
         <div class="nav-spacer"></div>
-
-        <div class="nav-item logout-btn" @click="goHome">
-          <i class="el-icon-back"></i>
-          <span>返回商城 / BACK</span>
-        </div>
       </div>
     </div>
 
@@ -41,13 +44,19 @@
       <!-- 用户管理模块 -->
       <div v-if="activeMenu === 'user'" class="content-section">
         <div class="header-row">
-          <h2 class="section-title">USER MANAGEMENT / 用户管理</h2>
+          <h2 class="section-title">USER MANAGEMENT / 用户列表</h2>
         </div>
 
-        <!-- 搜索栏：优化布局，增加间距和样式 -->
+        <!-- 搜索栏 -->
         <div class="search-panel">
+          <div class="search-actions">
+            <button class="tnt-btn primary" @click="addUser">
+              <i class="el-icon-plus"></i> ADD USER
+            </button>
+          </div>
           <div class="search-item">
             <span class="search-label">USERNAME:</span>
+            <!-- 注意：在 Vue 2 中监听组件根元素原生事件需要  修饰符 -->
             <el-input
                 v-model="searchUsername"
                 placeholder="请输入用户名搜索..."
@@ -86,8 +95,16 @@
             </el-table-column>
             <el-table-column label="ACTION" width="200">
               <template v-slot="scope">
-                <button class="tnt-btn-sm" @click="editUser(scope.row)">EDIT</button>
-                <button class="tnt-btn-sm danger" @click="deleteUser(scope.row)">DEL</button>
+                <!-- 核心修改：如果是 admin，则不显示操作按钮 -->
+                <div v-if="scope.row.role !== 'admin'">
+                  <button class="tnt-btn-sm" @click="editUser(scope.row)">EDIT</button>
+                  <button class="tnt-btn-sm danger" @click="deleteUser(scope.row)">DEL</button>
+                </div>
+                <div v-else>
+                  <span style="color: #999; font-weight: bold; font-size: 12px; letter-spacing: 1px;">
+                    <i class="el-icon-lock"></i> PROTECTED
+                  </span>
+                </div>
               </template>
             </el-table-column>
           </el-table>
@@ -111,9 +128,34 @@
       <div v-if="activeMenu === 'product'" class="content-section">
         <div class="header-row">
           <h2 class="section-title">PRODUCT LIST / 商品列表</h2>
-          <button class="tnt-btn primary" @click="addProduct">
-            <i class="el-icon-plus"></i> NEW PRODUCT
-          </button>
+        </div>
+        
+        <!-- 搜索栏 -->
+        <div class="search-panel">
+          <div class="search-actions">
+            <button class="tnt-btn primary" @click="addProduct">
+              <i class="el-icon-plus"></i> NEW PRODUCT
+            </button>
+          </div>
+          <div class="search-item">
+            <span class="search-label">PRODUCT NAME:</span>
+            <el-input
+                v-model="searchProductName"
+                placeholder="请输入商品名称搜索..."
+                class="tnt-input"
+                @keyup.enter="searchProducts"
+                clearable
+                @clear="searchProducts">
+            </el-input>
+          </div>
+          <div class="search-actions">
+            <button class="tnt-btn primary" @click="searchProducts">
+              <i class="el-icon-search"></i> SEARCH
+            </button>
+            <button class="tnt-btn" @click="resetProductSearch">
+              <i class="el-icon-refresh"></i> RESET
+            </button>
+          </div>
         </div>
 
         <div class="table-container">
@@ -126,7 +168,8 @@
             <el-table-column label="IMAGE" width="120">
               <template v-slot="scope">
                 <div class="img-wrapper">
-                  <img :src="scope.row.img" alt="prod">
+                  <img v-if="scope.row && scope.row.imageUrl" :src="scope.row.imageUrl" alt="prod">
+                  <img v-else src="" alt="prod">
                 </div>
               </template>
             </el-table-column>
@@ -135,6 +178,7 @@
               <template v-slot="scope">¥ {{ scope.row.price }}</template>
             </el-table-column>
             <el-table-column prop="stock" label="STOCK" width="100"></el-table-column>
+            <el-table-column prop="category" label="CATEGORY" width="150"></el-table-column>
             <el-table-column label="ACTION" width="200">
               <template v-slot="scope">
                 <button class="tnt-btn-sm" @click="editProduct(scope.row)">EDIT</button>
@@ -142,39 +186,114 @@
               </template>
             </el-table-column>
           </el-table>
+
+          <!-- 商品分页组件 -->
+          <div style="padding: 20px; text-align: right;">
+            <el-pagination
+                background
+                layout="prev, pager, next"
+                :total="total"
+                :page-size="pageSize"
+                :current-page="currentPage"
+                @current-change="handlePageChange"
+                class="tnt-pagination"
+            />
+          </div>
+        </div>
+      </div>
+
+      <!-- 订单管理模块 -->
+      <div v-if="activeMenu === 'order'" class="content-section">
+        <div class="header-row">
+          <h2 class="section-title">ORDER MANAGEMENT / 订单管理</h2>
+        </div>
+        
+        <!-- 搜索栏 -->
+        <div class="search-panel">
+          <div class="search-item">
+            <span class="search-label">ORDER ID:</span>
+            <el-input
+                v-model="searchOrderId"
+                placeholder="请输入订单ID搜索..."
+                class="tnt-input"
+                @keyup.enter="searchOrders"
+                clearable
+                @clear="searchOrders">
+            </el-input>
+          </div>
+          <div class="search-actions">
+            <button class="tnt-btn primary" @click="searchOrders">
+              <i class="el-icon-search"></i> SEARCH
+            </button>
+            <button class="tnt-btn" @click="resetOrderSearch">
+              <i class="el-icon-refresh"></i> RESET
+            </button>
+          </div>
+        </div>
+
+        <div class="table-container">
+          <el-table
+              :data="orderList"
+              style="width: 100%"
+              header-row-class-name="tnt-table-header"
+              row-class-name="tnt-table-row"
+              v-loading="loading">
+            <el-table-column prop="id" label="ORDER ID" width="150"></el-table-column>
+            <el-table-column prop="userId" label="USER ID" width="120"></el-table-column>
+            <el-table-column prop="productId" label="PRODUCT ID" width="120"></el-table-column>
+            <el-table-column prop="quantity" label="QUANTITY" width="100"></el-table-column>
+            <el-table-column prop="totalPrice" label="TOTAL PRICE" width="150">
+              <template v-slot="scope">¥ {{ scope.row.totalPrice }}</template>
+            </el-table-column>
+            <el-table-column prop="orderTime" label="ORDER TIME" width="200"></el-table-column>
+            <el-table-column prop="status" label="STATUS" width="120">
+              <template v-slot="scope">
+                <span :class="scope.row.status === 'completed' ? 'status-tag completed' : 'status-tag pending'">
+                  {{ scope.row.status === 'completed' ? 'COMPLETED' : 'PENDING' }}
+                </span>
+              </template>
+            </el-table-column>
+          </el-table>
+
+          <!-- 订单分页组件 -->
+          <div style="padding: 20px; text-align: right;">
+            <el-pagination
+                background
+                layout="prev, pager, next"
+                :total="total"
+                :page-size="pageSize"
+                :current-page="currentPage"
+                @current-change="handlePageChange"
+                class="tnt-pagination"
+            />
+          </div>
         </div>
       </div>
 
     </div>
 
-    <!-- 用户编辑弹窗 -->
+    <!-- 用户编辑/新增弹窗 -->
     <el-dialog
-        title="EDIT USER INFO"
-        :visible="userDialogVisible"
-        @update:visible="userDialogVisible = $event"
+        :title="isAddingUser ? 'ADD USER INFO' : 'EDIT USER INFO'"
+        v-model="userDialogVisible"
         width="400px"
         custom-class="tnt-dialog">
       <el-form :model="userForm" label-width="100px" label-position="left">
-        <el-form-item label="USERNAME">
-          <el-input v-model="userForm.username" disabled></el-input>
+        <el-form-item label="USERNAME" required>
+          <el-input v-model="userForm.username" :disabled="!isAddingUser" placeholder="输入用户名"></el-input>
         </el-form-item>
-        <el-form-item label="PASSWORD">
-          <el-input v-model="userForm.password" show-password></el-input>
+        <el-form-item label="PASSWORD" required>
+          <el-input v-model="userForm.password" show-password placeholder="输入密码"></el-input>
         </el-form-item>
-        <el-form-item label="EMAIL">
-          <el-input v-model="userForm.email"></el-input>
+        <el-form-item label="PHONE">
+          <el-input v-model="userForm.phone" placeholder="输入电话"></el-input>
         </el-form-item>
-        <el-form-item label="ROLE">
-          <el-select v-model="userForm.role" style="width: 100%">
-            <el-option label="ADMIN" value="admin"></el-option>
-            <el-option label="USER" value="user"></el-option>
-          </el-select>
-        </el-form-item>
+        <!-- 不允许修改角色 -->
       </el-form>
       <template #footer>
         <div class="dialog-footer">
           <button class="tnt-btn-sm" @click="userDialogVisible = false">CANCEL</button>
-          <button class="tnt-btn-sm primary" @click="saveUser">SAVE</button>
+          <button class="tnt-btn-sm primary" @click="saveUser">{{ isAddingUser ? 'ADD' : 'SAVE' }}</button>
         </div>
       </template>
     </el-dialog>
@@ -182,8 +301,7 @@
     <!-- 商品编辑弹窗 -->
     <el-dialog
         :title="productDialogTitle.toUpperCase()"
-        :visible="productDialogVisible"
-        @update:visible="productDialogVisible = $event"
+        v-model="productDialogVisible"
         width="500px"
         custom-class="tnt-dialog">
       <el-form :model="productForm" label-width="100px" label-position="left">
@@ -191,7 +309,7 @@
           <el-input v-model="productForm.name"></el-input>
         </el-form-item>
         <el-form-item label="IMAGE URL">
-          <el-input v-model="productForm.img"></el-input>
+          <el-input v-model="productForm.imageUrl"></el-input>
         </el-form-item>
         <el-form-item label="PRICE">
           <el-input v-model="productForm.price" type="number"></el-input>
@@ -200,10 +318,10 @@
           <el-input v-model="productForm.stock" type="number"></el-input>
         </el-form-item>
         <el-form-item label="CATEGORY">
-          <el-input v-model="productForm.category"></el-input>
-        </el-form-item>
-        <el-form-item label="DESC">
-          <el-input type="textarea" :rows="3" v-model="productForm.description"></el-input>
+          <el-select v-model="productForm.category" placeholder="选择分类">
+            <el-option label="棉花娃娃" value="棉花娃娃"></el-option>
+            <el-option label="小卡" value="小卡"></el-option>
+          </el-select>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -232,35 +350,59 @@ export default {
       userList: [],
       searchUsername: '',
       currentPage: 1,
-      pageSize: 10,
+      pageSize: 6,
       total: 0,
 
       // 商品数据
       productList: [],
+      searchProductName: '',
+      
+      // 订单数据
+      orderList: [],
+      searchOrderId: '',
 
       // 弹窗控制
       userDialogVisible: false,
       productDialogVisible: false,
       productDialogTitle: '新增商品',
-      userForm: {},
-      productForm: {}
+      userForm: { username: '', password: '', phone: '' },
+      productForm: { name: '', imageUrl: '', price: 0, stock: 0, category: '', description: '' },
+      isAddingUser: false
     }
   },
   created() {
     this.loadUsers();
   },
+  beforeUnmount() {
+    // 组件卸载前清理所有响应式数据
+    this.userForm = { username: '', password: '', phone: '' };
+    this.productForm = { name: '', imageUrl: '', price: 0, stock: 0, category: '', description: '' };
+    this.userList = [];
+    this.productList = [];
+  },
   methods: {
     handleMenuSelect(index) {
+      // 关闭所有弹窗并重置表单数据
+      this.userDialogVisible = false;
+      this.productDialogVisible = false;
+      this.userForm = { username: '', password: '', phone: '' };
+      this.productForm = { name: '', imageUrl: '', price: 0, stock: 0, category: '', description: '' };
+      
       this.activeMenu = index;
       if (index === 'user') this.loadUsers();
       if (index === 'product') this.loadProducts();
-    },
-    goHome() {
-      this.$router.push('/');
+      if (index === 'order') this.loadOrders();
     },
     handlePageChange(page) {
       this.currentPage = page;
-      this.loadUsers();
+      // 根据当前激活的菜单选择加载不同的数据
+      if (this.activeMenu === 'user') {
+        this.loadUsers();
+      } else if (this.activeMenu === 'product') {
+        this.loadProducts();
+      } else if (this.activeMenu === 'order') {
+        this.loadOrders();
+      }
     },
 
     // 重置搜索
@@ -269,25 +411,69 @@ export default {
       this.currentPage = 1;
       this.loadUsers();
     },
+    // 商品搜索
+    searchProducts() {
+      this.currentPage = 1;
+      this.loadProducts(this.searchProductName);
+    },
+    // 重置商品搜索
+    resetProductSearch() {
+      this.searchProductName = '';
+      this.currentPage = 1;
+      this.loadProducts('');
+    },
+    // 加载订单列表
+    async loadOrders() {
+      this.loading = true;
+      try {
+        const res = await axios.get('http://localhost:9090/order/list', {
+          params: {
+            pageNum: this.currentPage,
+            pageSize: this.pageSize,
+            id: this.searchOrderId
+          }
+        });
+
+        if (res.data.code === '200') {
+          this.orderList = res.data.data.list;
+          this.total = res.data.data.total;
+        } else {
+          this.$message.error('获取订单列表失败');
+        }
+      } catch (e) {
+        console.error(e);
+        this.$message.error('网络请求错误');
+      } finally {
+        this.loading = false;
+      }
+    },
+    // 订单搜索
+    searchOrders() {
+      this.currentPage = 1;
+      this.loadOrders();
+    },
+    // 重置订单搜索
+    resetOrderSearch() {
+      this.searchOrderId = '';
+      this.currentPage = 1;
+      this.loadOrders();
+    },
 
     // --- 用户请求逻辑 ---
     async loadUsers() {
       this.loading = true;
       try {
-        // 使用 axios 直接发送请求，不需要 proxy 或 getCurrentInstance
         const res = await axios.get('http://localhost:9090/user/all', {
           params: {
-            username: this.searchUsername, // 搜索关键词
+            username: this.searchUsername,
             pageNum: this.currentPage,
             pageSize: this.pageSize
           }
         });
 
         if (res.data.code === '200') {
-          // 适配 Spring Data JPA 返回的分页结构
           this.userList = res.data.data.list;
           this.total = res.data.data.total;
-
         } else {
           this.$message.error(res.data.msg || '加载失败');
         }
@@ -299,79 +485,165 @@ export default {
       }
     },
 
-    editUser(row) {
-      this.userForm = JSON.parse(JSON.stringify(row));
+    async editUser(row) {
+      // 先通过ID查询最新的用户信息
+      try {
+        const res = await axios.get(`http://localhost:9090/user/${row.id}`);
+        if (res.data.code === '200') {
+          this.userForm = res.data.data;
+          this.isAddingUser = false;
+          this.userDialogVisible = true;
+        } else {
+          this.$message.error('获取用户信息失败');
+        }
+      } catch (e) {
+        console.error(e);
+        this.$message.error('网络请求错误');
+      }
+    },
+    addUser() {
+      // 新增用户
+      this.userForm = {
+        // role 字段会在API中自动设置为user
+      };
+      this.isAddingUser = true;
       this.userDialogVisible = true;
     },
     deleteUser(row) {
-      this.$confirm('确定删除该用户?', 'WARNING', {
+      this.$confirm('确定删除该用户吗？', 'WARNING', {
         confirmButtonText: 'CONFIRM',
         cancelButtonText: 'CANCEL',
         type: 'warning',
         customClass: 'tnt-message-box'
       }).then(() => {
-        axios.delete(`http://localhost:9090/user/delete/${row.id}`).then(res => {
-          if (res.data.code === '0') {
-            this.$message.success('已删除 / DELETED');
-            this.loadUsers();
-          }
-        });
+        // 确认删除后发起请求
+        axios.delete(`http://localhost:9090/user/delete/${row.id}`)
+            .then(res => {
+              if (res.data.code === '200') {
+                this.$message.success('已删除');
+                this.loadUsers();
+              } else {
+                this.$message.error('删除失败');
+              }
+            })
+            .catch(err => {
+              console.error(err);
+              this.$message.error('删除请求出错');
+            });
       }).catch(() => {
         // 捕获“取消”操作，防止抛出 "cancel" 错误
         this.$message.info('已取消删除');
       });
     },
     saveUser() {
-      axios.put('http://localhost:9090/user/admin/update', this.userForm).then(res => {
-        if (res.data.code === '0') {
-          this.$message.success('保存成功 / SAVED');
-          this.userDialogVisible = false;
-          this.loadUsers();
-        }
-      });
+      // 根据是否是新增用户选择不同的API
+      const url = this.isAddingUser ? 'http://localhost:9090/user/register' : 'http://localhost:9090/user/admin/update';
+      const method = this.isAddingUser ? 'post' : 'put';
+      
+      axios[method](url, this.userForm)
+          .then(res => {
+            if (res.data.code === '200') {
+              this.$message.success(this.isAddingUser ? '添加成功' : '保存成功');
+              this.userDialogVisible = false;
+              this.loadUsers();
+            } else {
+              this.$message.error(res.data.msg || (this.isAddingUser ? '添加失败' : '保存失败'));
+            }
+          })
+          .catch(e => {
+            console.error(e);
+            this.$message.error(this.isAddingUser ? '添加请求出错' : '保存请求出错');
+          });
     },
 
     // --- 商品逻辑 ---
-    loadProducts() {
-      axios.get('http://localhost:9090/product/list').then(res => {
-        if (res.data.code === '0') this.productList = res.data.data;
-      });
+    async loadProducts(searchName = this.searchProductName) {
+      this.loading = true;
+      try {
+        const res = await axios.get('http://localhost:9090/product/list', {
+          params: {
+            pageNum: this.currentPage,
+            pageSize: this.pageSize,
+            name: searchName
+          }
+        });
+
+        if (res.data.code === '200') {
+          this.productList = res.data.data.list;
+          this.total = res.data.data.total;
+        } else {
+          this.$message.error('获取商品列表失败');
+        }
+      } catch (e) {
+        console.error(e);
+        this.$message.error('网络请求错误');
+      } finally {
+        this.loading = false;
+      }
     },
     addProduct() {
       this.productDialogTitle = 'New Product';
-      this.productForm = {};
+      this.productForm = { name: '', img: '', price: 0, stock: 0, category: '', description: '' };
       this.productDialogVisible = true;
     },
-    editProduct(row) {
-      this.productDialogTitle = 'Edit Product';
-      this.productForm = JSON.parse(JSON.stringify(row));
-      this.productDialogVisible = true;
+    async editProduct(row) {
+      // 先通过ID查询最新的商品信息
+      try {
+        const res = await axios.get(`http://localhost:9090/product/${row.id}`);
+        if (res.data.code === '200') {
+          this.productDialogTitle = 'Edit Product';
+          this.productForm = res.data.data;
+          this.productDialogVisible = true;
+        } else {
+          this.$message.error('获取商品信息失败');
+        }
+      } catch (e) {
+        console.error(e);
+        this.$message.error('网络请求错误');
+      }
     },
     deleteProduct(row) {
-      this.$confirm('确定删除该商品吗？/ DELETE THIS PRODUCT?', 'WARNING', {
+      this.$confirm('确定删除该商品吗？', 'WARNING', {
         confirmButtonText: 'CONFIRM',
         cancelButtonText: 'CANCEL',
         type: 'warning',
         customClass: 'tnt-message-box'
       }).then(() => {
-        axios.delete(`http://localhost:9090/product/delete/${row.id}`).then(res => {
-          if (res.data.code === '0') {
-            this.$message.success('已删除 / DELETED');
-            this.loadProducts();
-          }
-        });
+        axios.delete(`http://localhost:9090/product/delete/${row.id}`)
+            .then(res => {
+              if (res.data.code === '200') {
+                this.$message.success('已删除');
+                this.loadProducts();
+              } else {
+                this.$message.error('删除失败');
+              }
+            })
+            .catch(e => {
+              console.error(e);
+              this.$message.error('该商品已经加入其他用户购物车,禁止删除');
+            });
+      }).catch(() => {
+        // 捕获“取消”操作
+        this.$message.info('已取消删除');
       });
     },
     saveProduct() {
-      const url = this.productForm.id ? 'http://localhost:9090/product/update' : 'http://localhost:9090/product/add';
+      const url = this.productForm.id ? 'http://localhost:9090/product/admin/update' : 'http://localhost:9090/product/add';
       const method = this.productForm.id ? 'put' : 'post';
-      axios[method](url, this.productForm).then(res => {
-        if (res.data.code === '0') {
-          this.$message.success('保存成功 / SAVED');
-          this.productDialogVisible = false;
-          this.loadProducts();
-        }
-      });
+      axios[method](url, this.productForm)
+          .then(res => {
+            if (res.data.code === '200') {
+              this.$message.success('保存成功');
+              this.productDialogVisible = false;
+              this.loadProducts();
+            } else {
+              this.$message.error(res.data.msg || '保存失败');
+            }
+          })
+          .catch(e => {
+            console.error(e);
+            this.$message.error('保存请求出错');
+          });
     }
   }
 }
@@ -535,8 +807,9 @@ export default {
   padding: 20px;
   margin-bottom: 25px;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+        align-items: center;
+        justify-content: space-between;
+        gap: 20px;
   box-shadow: 4px 4px 0 rgba(0,0,0,0.1);
 }
 
@@ -681,6 +954,25 @@ export default {
 }
 ::v-deep .el-input__inner:focus {
   border-color: #000;
+}
+
+/* 订单状态标签 */
+.status-tag {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+.status-tag.pending {
+  background-color: #FFF3CD;
+  color: #856404;
+  border: 1px solid #FFEEBA;
+}
+.status-tag.completed {
+  background-color: #D4EDDA;
+  color: #155724;
+  border: 1px solid #C3E6CB;
 }
 
 /* 分页覆盖 */

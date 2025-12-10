@@ -2,6 +2,7 @@ package com.example.tnt_shopping_background.controller;
 
 import com.example.tnt_shopping_background.common.Result;
 import com.example.tnt_shopping_background.entity.Product;
+import com.example.tnt_shopping_background.entity.User;
 import com.example.tnt_shopping_background.repository.ProductRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -24,15 +25,15 @@ public class ProductController {
     // 获取商品列表 (分页)
     @GetMapping("/list")
     public Result<Map<String, Object>> list(
-            @RequestParam(required = false) String category,
-            @RequestParam(defaultValue = "1") Integer page,
-            @RequestParam(defaultValue = "4") Integer size) {
+            @RequestParam(required = false) String name,
+            @RequestParam(defaultValue = "1") Integer pageNum,
+            @RequestParam(defaultValue = "10") Integer pageSize) {
 
-        Pageable pageable = PageRequest.of(page - 1, size, Sort.by("id").descending());
+        Pageable pageable = PageRequest.of(pageNum - 1, pageSize);
 
         Page<Product> pageResult;
-        if (category != null && !category.isEmpty()) {
-            pageResult = productRepository.findByCategory(category, pageable);
+        if (name != null && !name.isEmpty()) {
+            pageResult = productRepository.findByNameContaining(name, pageable);
         } else {
             pageResult = productRepository.findAll(pageable);
         }
@@ -44,9 +45,31 @@ public class ProductController {
         return Result.success(data);
     }
 
-    // [新增] 管理员获取所有商品 (不分页)
-    @GetMapping("/all")
-    public Result<List<Product>> all() {
-        return Result.success(productRepository.findAll(Sort.by(Sort.Direction.DESC, "id")));
+    @DeleteMapping("/delete/{id}")
+    public Result<?> deleteProduct(@PathVariable Integer id) {
+        productRepository.deleteById(id);
+        return Result.success(null);
+    }
+
+    @PutMapping("/admin/update")
+    public Result<?> adminUpdateProduct(@RequestBody Product product) {
+        productRepository.save(product);
+        return Result.success(null);
+    }
+
+    @GetMapping("/{id}")
+    public Result<?> getById(@PathVariable Integer id) {
+        return Result.success(productRepository.findById(id).orElse(null));
+    }
+
+    @PostMapping("/add")
+    public Result<?> register(@RequestBody Product user) {
+        Product dbProduct = productRepository.findByName(user.getName());
+        if (dbProduct != null) {
+            return Result.error("400", "商品已存在");
+        }
+        // 默认注册为普通用户
+        productRepository.save(user);
+        return Result.success(null);
     }
 }

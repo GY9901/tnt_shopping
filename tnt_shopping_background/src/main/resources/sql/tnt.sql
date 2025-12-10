@@ -34,24 +34,24 @@ CREATE TABLE `sys_carousel` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='轮播图配置表';
 
 -- 初始化测试数据 (模拟每个区域4张图)
-INSERT INTO `sys_carousel` (`section`, `title`, `sub_title`, `bg_color`, `sort`) VALUES
+INSERT INTO `sys_carousel` (`section`, `image_url`, `sort`) VALUES
 -- 顶部大轮播 (MAIN)
-('MAIN', 'TNT NEW ARRIVAL 1', '2025 SUMMER COLLECTION', '#FAD02C', 1),
-('MAIN', 'TNT CONCERT LIVE', 'WORLD TOUR 2025', '#FAD02C', 2),
-('MAIN', 'NEW ALBUM RELEASE', 'LIMITED EDITION', '#FAD02C', 3),
-('MAIN', 'MEMBER SPECIAL', 'DOCUMENTARY', '#FAD02C', 4),
+('MAIN', '/images/adv/轮播1-1.jpg', 1),
+('MAIN', '/images/adv/轮播1-2.jpg', 2),
+('MAIN', '/images/adv/轮播1-3.jpg', 3),
+('MAIN', '/images/adv/轮播1-4.jpg', 4),
 
 -- 左上独家花絮 (EXCLUSIVE)
-('EXCLUSIVE', 'BEHIND THE SCENE 1', NULL, '#1A1A1A', 1),
-('EXCLUSIVE', 'DANCE PRACTICE', NULL, '#1A1A1A', 2),
-('EXCLUSIVE', 'VLOG DAILY', NULL, '#1A1A1A', 3),
-('EXCLUSIVE', 'MV MAKING', NULL, '#1A1A1A', 4),
+('EXCLUSIVE', '/images/adv/轮播2-1.jpg', 1),
+('EXCLUSIVE', '/images/adv/轮播2-2.jpg', 2),
+('EXCLUSIVE', '/images/adv/轮播2-3.jpg', 3),
+('EXCLUSIVE', '/images/adv/轮播2-4.jpg', 4),
 
 -- 左下热销单品 (HOT)
-('HOT', 'TOP SELLING 1', NULL, '#FFFFFF', 1),
-('HOT', 'OFFICIAL LIGHT STICK', NULL, '#FFFFFF', 2),
-('HOT', 'PHOTO CARD SET', NULL, '#FFFFFF', 3),
-('HOT', 'HOODIE BLACK', NULL, '#FFFFFF', 4);
+('HOT', '/images/adv/轮播3-1.jpg', 1),
+('HOT', '/images/adv/轮播3-2.jpg', 2),
+('HOT', '/images/adv/轮播3-3.jpg', 3),
+('HOT', '/images/adv/轮播3-4.jpg', 4);
 
 -- 留言板表
 DROP TABLE IF EXISTS `sys_message`;
@@ -80,15 +80,15 @@ CREATE TABLE `sys_product` (
 -- 初始化测试数据 (扩充数据量以支持分页测试，每页4条)
 INSERT INTO `sys_product` (`name`, `category`, `price`, `stock`, `image_url`) VALUES
 -- 棉花娃娃 (第一页)
-('宋亚轩 20cm 娃衣套装', '棉花娃娃', 128.00, 50, NULL),
-('马嘉祺 官方应援娃', '棉花娃娃', 158.00, 30, NULL),
-('严浩翔 舞台限定娃', '棉花娃娃', 148.00, 45, NULL),
-('张真源 饭制可爱娃', '棉花娃娃', 98.00, 100, NULL),
+('棉花娃娃商品图1', '棉花娃娃', 79.00, 50, '/images/棉花娃娃商品图1.jpg'),
+('棉花娃娃商品图2', '棉花娃娃', 59.00, 30, '/images/棉花娃娃商品图2.jpg'),
+('棉花娃娃商品图3', '棉花娃娃', 59.00, 45, '/images/棉花娃娃商品图3.jpg'),
+('棉花娃娃商品图5', '棉花娃娃', 69.00, 100, '/images/棉花娃娃商品图4.jpg'),
 -- 棉花娃娃 (第二页测试数据)
-('刘耀文 狼崽公仔', '棉花娃娃', 120.00, 60, NULL),
-('贺峻霖 兔子玩偶', '棉花娃娃', 110.00, 80, NULL),
-('丁程鑫 狐狸抱枕', '棉花娃娃', 88.00, 200, NULL),
-('全员 Q版手办套装', '棉花娃娃', 399.00, 20, NULL),
+('小卡商品图1', '小卡', 70.00, 60, '/images/小卡商品图1.jpg'),
+('小卡商品图2', '小卡', 70.00, 80, '/images/小卡商品图2.jpg',
+('小卡商品图3', '小卡', 80.00, 200, '/images/小卡商品图3.jpg'),
+('小卡商品图4', '小卡', 80.00, 20, '/images/小卡商品图4.jpg'),
 
 -- 小卡 (第一页)
 ('全员 Summer 拍立得小卡', '小卡', 35.00, 200, NULL),

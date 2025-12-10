@@ -326,7 +326,7 @@ onMounted(() => {
 
 /* 右侧列：留言板 */
 .right-col {
-  width: 350px;
+  width: 650px;
   border: 2px solid #000;
   background: #FFF;
   display: flex;

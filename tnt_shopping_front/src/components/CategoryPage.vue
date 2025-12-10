@@ -122,8 +122,8 @@ const fetchProducts = async () => {
     const res = await proxy.$request.get('/product/list', {
       params: {
         category: currentCategory.value,
-        page: currentPage.value,
-        size: pageSize.value
+        pageNum: currentPage.value,
+        pageSize: pageSize.value
       }
     })
     if (res.data.code === '200') {
