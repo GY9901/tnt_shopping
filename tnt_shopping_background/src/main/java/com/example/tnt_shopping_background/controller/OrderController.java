@@ -39,7 +39,14 @@ public class OrderController {
             @RequestParam(defaultValue = "5") Integer pageSize) {
 
         Pageable pageable = PageRequest.of(pageNum - 1, pageSize);
-        Page<Order> orderPage = orderRepository.findByUsernameOrderByCreateTimeDesc(username, pageable);
+        Page<Order> orderPage;
+
+        if (username != null && !username.isEmpty()) {
+            orderPage = orderRepository.findByUsernameOrderByCreateTimeDesc(username, pageable);
+        } else {
+            orderPage = orderRepository.findAll(pageable);
+        }
+
 
         Map<String, Object> data = new HashMap<>();
         data.put("list", orderPage.getContent());
@@ -69,7 +76,7 @@ public class OrderController {
             Order order = new Order();
             order.setUsername(username);
             order.setTotalAmount(totalAmount);
-            order.setStatus("COMPLETED");
+            order.setStatus("PAYED");
             order.setPaymentMethod(paymentMethod);
 
             String orderNo = "TNT" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + (int)(Math.random() * 1000);
@@ -98,6 +105,44 @@ public class OrderController {
         } catch (Exception e) {
             e.printStackTrace();
             return Result.error("500", "下单失败: " + e.getMessage());
+        }
+    }
+
+    // 更新订单状态
+    @PutMapping("/admin/updateStatus")
+    public Result<?> updateStatus(@RequestBody Map<String, Object> payload) {
+        try {
+            Integer id = Integer.parseInt(payload.get("id").toString());
+            String status = (String) payload.get("status");
+
+            // 查找订单
+            Order order = orderRepository.findById(id).orElseThrow(() -> new RuntimeException("订单不存在"));
+
+            // 更新状态
+            order.setStatus(status);
+            orderRepository.save(order);
+
+            return Result.success(null);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("500", "更新订单状态失败: " + e.getMessage());
+        }
+    }
+    
+    // 删除订单
+    @DeleteMapping("/admin/delete/{id}")
+    public Result<?> deleteOrder(@PathVariable Integer id) {
+        try {
+            // 查找订单
+            Order order = orderRepository.findById(id).orElseThrow(() -> new RuntimeException("订单不存在"));
+            
+            // 删除订单
+            orderRepository.delete(order);
+            
+            return Result.success(null);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("500", "删除订单失败: " + e.getMessage());
         }
     }
 }

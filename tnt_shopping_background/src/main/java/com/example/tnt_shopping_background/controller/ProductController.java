@@ -25,6 +25,7 @@ public class ProductController {
     // 获取商品列表 (分页)
     @GetMapping("/list")
     public Result<Map<String, Object>> list(
+            @RequestParam(required = false) String category,
             @RequestParam(required = false) String name,
             @RequestParam(defaultValue = "1") Integer pageNum,
             @RequestParam(defaultValue = "10") Integer pageSize) {
@@ -32,8 +33,12 @@ public class ProductController {
         Pageable pageable = PageRequest.of(pageNum - 1, pageSize);
 
         Page<Product> pageResult;
-        if (name != null && !name.isEmpty()) {
+        if (name != null && !name.isEmpty() && category != null && !category.isEmpty()) {
+            pageResult = productRepository.findByNameContainingAndCategoryContaining(name, category, pageable);
+        } else if (name != null && !name.isEmpty()) {
             pageResult = productRepository.findByNameContaining(name, pageable);
+        } else if (category != null && !category.isEmpty()) {
+            pageResult = productRepository.findByCategoryContaining(category, pageable);
         } else {
             pageResult = productRepository.findAll(pageable);
         }
