@@ -39,7 +39,7 @@
       <!-- 商品 2x2 网格 -->
       <div class="product-grid" v-loading="loading">
         <!-- 循环渲染商品卡片 -->
-        <div class="product-card" v-for="item in productList" :key="item.id">
+        <div class="product-card" v-for="item in productList" :key="item.id" @click="goToProductDetail(item)">
 
           <!-- 上半部：内容展示 (Flex: 左图55% 右信息45%) -->
           <div class="card-body">
@@ -66,10 +66,10 @@
 
           <!-- 下半部：操作按钮 -->
           <div class="card-actions">
-            <button class="btn btn-cart" @click="addToCart(item)">
+            <button class="btn btn-cart" @click.stop="addToCart(item)">
               加入购物车
             </button>
-            <button class="btn btn-buy" @click="buyNow(item)">
+            <button class="btn btn-buy" @click.stop="buyNow(item)">
               立即购买
             </button>
           </div>
@@ -120,6 +120,22 @@
           </div>
         </div>
 
+        <!-- 收货地址选择 -->
+        <div class="delivery-address">
+          <div class="method-title">DELIVERY ADDRESS / 收货地址</div>
+          <div class="address-selector" @click="openAddressDialog">
+            <div v-if="selectedAddress" class="selected-address-info">
+              <div class="address-name">姓名：{{ selectedAddress.username }}</div>
+              <div class="address-phone">电话：{{ selectedAddress.phone }}</div>
+              <div class="address-detail">地址：{{ selectedAddress.address }}</div>
+            </div>
+            <div v-else class="no-address">
+              <span>请选择收货地址</span>
+              <el-icon><Plus /></el-icon>
+            </div>
+          </div>
+        </div>
+
         <div class="payment-method">
           <div class="method-title">PAYMENT METHOD</div>
           <div
@@ -142,6 +158,45 @@
           </div>
         </div>
       </div>
+      
+      <!-- 地址选择弹窗 -->
+      <el-dialog
+        v-model="addressVisible"
+        title="选择收货地址"
+        width="700px"
+        center
+      >
+        <div class="address-dialog-content">
+          <!-- 地址列表 -->
+          <div class="address-list">
+            <div
+              class="address-item"
+              v-for="address in addresses"
+              :key="address.id"
+              :class="{ active: selectedAddress && selectedAddress.id === address.id }"
+              @click="selectAddress(address)"
+            >
+              <div class="address-header">
+                <div class="address-username">{{ address.username }}</div>
+                <div class="address-phone">{{ address.phone }}</div>
+                <div v-if="address.isDefault" class="default-tag">默认</div>
+              </div>
+              <div class="address-detail">{{ address.address }}</div>
+            </div>
+            
+            <!-- 空状态 -->
+            <div v-if="addresses.length === 0" class="empty-address">
+              暂无地址记录，请先在个人中心添加地址
+            </div>
+          </div>
+        </div>
+        <template #footer>
+          <div class="dialog-footer">
+            <button class="btn-cancel" @click="addressVisible = false">取消</button>
+            <button class="btn-confirm" @click="addressVisible = false" :disabled="!selectedAddress">确定</button>
+          </div>
+        </template>
+      </el-dialog>
       <template #footer>
         <div class="dialog-footer">
           <button class="btn-cancel" @click="paymentVisible = false">CANCEL</button>
@@ -156,8 +211,11 @@
 
 <script setup>
 import { ref, onMounted, getCurrentInstance, computed } from 'vue'
+import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { CaretRight, Select } from '@element-plus/icons-vue'
+import { CaretRight, Select, Plus } from '@element-plus/icons-vue'
+
+const router = useRouter()
 
 const { proxy } = getCurrentInstance()
 
@@ -174,6 +232,10 @@ const payMethod = ref('alipay')
 const isPaying = ref(false)
 const selectedProduct = ref(null)
 const buyQuantity = ref(1)
+// 地址相关
+const addresses = ref([])
+const selectedAddress = ref(null)
+const addressVisible = ref(false)
 
 // 计算总价
 const totalPrice = computed(() => {
@@ -248,15 +310,67 @@ const addToCart = async (item) => {
   }
 }
 
+// 获取用户地址列表
+const fetchAddresses = async () => {
+  try {
+    const userStr = localStorage.getItem('user')
+    if (userStr) {
+      const user = JSON.parse(userStr)
+      const res = await proxy.$request.get('/address/list', { params: { username: user.username } })
+      if (res.data.code === '200') {
+        addresses.value = res.data.data
+        // 如果有地址，默认选择第一个或者默认地址
+        if (addresses.value.length > 0) {
+          // 优先选择默认地址
+          const defaultAddr = addresses.value.find(addr => addr.isDefault)
+          if (defaultAddr) {
+            selectedAddress.value = defaultAddr
+          } else {
+            // 否则选择第一个地址
+            selectedAddress.value = addresses.value[0]
+          }
+        }
+      }
+    }
+  } catch(e) {
+    console.error('获取地址列表失败:', e)
+  }
+}
+
+// 打开地址选择弹窗
+const openAddressDialog = () => {
+  // 先获取最新地址列表
+  fetchAddresses()
+  addressVisible.value = true
+}
+
+// 选择地址
+const selectAddress = (address) => {
+  selectedAddress.value = address
+}
+
 const buyNow = (item) => {
   selectedProduct.value = item
   buyQuantity.value = 1
+  // 获取用户地址
+  fetchAddresses()
   paymentVisible.value = true
+}
+
+// 跳转到商品详情页
+const goToProductDetail = (item) => {
+  router.push({ name: 'ProductDetail', params: { id: item.id } })
 }
 
 // 确认支付
 const handlePay = async () => {
   if (!selectedProduct.value) return
+  
+  // 检查是否选择了地址
+  if (!selectedAddress.value) {
+    ElMessage.warning('请选择收货地址')
+    return
+  }
   
   isPaying.value = true
   
@@ -274,6 +388,9 @@ const handlePay = async () => {
     username: user.username,
     totalAmount: totalPrice.value,
     paymentMethod: payMethod.value.toUpperCase(),
+    // 添加收货地址信息
+    address: selectedAddress.value.address,
+    phone: selectedAddress.value.phone,
     items: [{
       productName: selectedProduct.value.name,
       productImg: selectedProduct.value.imageUrl,
@@ -293,6 +410,8 @@ const handlePay = async () => {
           duration: 2000
         })
         paymentVisible.value = false
+        // 刷新商品列表，更新库存
+        fetchProducts()
       } else {
         ElMessage.error(res.data.msg || '下单失败')
       }
@@ -726,6 +845,141 @@ onMounted(() => {
 :deep(.tnt-dialog .el-dialog__footer) {
   padding: 20px;
   border-top: 2px solid #000;
+}
+
+/* 收货地址选择样式 */
+.delivery-address {
+  margin: 20px 0;
+  padding: 15px;
+  background: #FAFAFA;
+  border: 1px solid #EEE;
+}
+
+.address-selector {
+  background: #FFF;
+  border: 2px solid #000;
+  padding: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 10px;
+}
+
+.address-selector:hover {
+  border-color: #FAD02C;
+  background: #FFFDF0;
+}
+
+.selected-address-info {
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.address-name {
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.address-phone {
+  color: #666;
+  margin-bottom: 5px;
+}
+
+.address-detail {
+  color: #333;
+}
+
+.no-address {
+  text-align: center;
+  color: #999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: bold;
+}
+
+/* 地址选择弹窗样式 */
+.address-dialog-content {
+  padding: 10px;
+}
+
+.address-list {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.address-item {
+  border: 2px solid #000;
+  padding: 15px;
+  margin-bottom: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #FFF;
+}
+
+.address-item:hover {
+  border-color: #FAD02C;
+  background: #FFFDF0;
+  transform: translateY(-2px);
+}
+
+.address-item.active {
+  border-color: #FAD02C;
+  background: #FAD02C;
+}
+
+.address-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 10px;
+}
+
+.address-username {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.address-phone {
+  color: #666;
+}
+
+.default-tag {
+  background: #000;
+  color: #FAD02C;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.empty-address {
+  text-align: center;
+  padding: 40px;
+  color: #999;
+  border: 2px dashed #EEE;
+  font-weight: bold;
+}
+
+/* 覆盖 Element Dialog 样式 */
+:deep(.el-dialog__header) {
+  background: #000;
+  color: #FAD02C;
+  border-bottom: 2px solid #FAD02C;
+}
+
+:deep(.el-dialog__title) {
+  font-weight: bold;
+  font-family: 'Anton', sans-serif;
+  font-size: 20px;
+}
+
+:deep(.el-dialog__body) {
+  padding: 20px;
+}
+
+:deep(.el-dialog__footer) {
+  border-top: 2px solid #000;
+  padding: 20px;
 }
 
 /* 覆盖 Element Pagination 为黑黄风格 */

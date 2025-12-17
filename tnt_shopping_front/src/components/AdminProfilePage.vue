@@ -264,6 +264,12 @@
             <el-table-column prop="createTime" label="ORDER TIME" width="120">
               <template v-slot="scope">{{ formatDate(scope.row.createTime) }}</template>
             </el-table-column>
+            <el-table-column prop="address" label="DELIVERY ADDRESS" min-width="200">
+              <template v-slot="scope">{{ scope.row.address || '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="phone" label="PHONE" width="120">
+              <template v-slot="scope">{{ scope.row.phone || '-' }}</template>
+            </el-table-column>
             <el-table-column prop="status" label="STATUS" width="120">
               <template v-slot="scope">
                 <template v-if="scope.row.status === 'COMPLETED'">

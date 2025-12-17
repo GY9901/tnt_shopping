@@ -40,13 +40,11 @@ INSERT INTO `sys_carousel` (`section`, `image_url`, `sort`) VALUES
 ('MAIN', '/images/adv/轮播1-2.jpg', 2),
 ('MAIN', '/images/adv/轮播1-3.jpg', 3),
 ('MAIN', '/images/adv/轮播1-4.jpg', 4),
-
 -- 左上独家花絮 (EXCLUSIVE)
 ('EXCLUSIVE', '/images/adv/轮播2-1.jpg', 1),
 ('EXCLUSIVE', '/images/adv/轮播2-2.jpg', 2),
 ('EXCLUSIVE', '/images/adv/轮播2-3.jpg', 3),
 ('EXCLUSIVE', '/images/adv/轮播2-4.jpg', 4),
-
 -- 左下热销单品 (HOT)
 ('HOT', '/images/adv/轮播3-1.jpg', 1),
 ('HOT', '/images/adv/轮播3-2.jpg', 2),
@@ -149,3 +147,17 @@ CREATE TABLE `sys_order_item` (
                                   `quantity` INT COMMENT '购买数量',
                                   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单详情表';
+
+DROP TABLE IF EXISTS `sys_address`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!50503 SET character_set_client = utf8mb4 */;
+CREATE TABLE `sys_address` (
+                               `id` int NOT NULL AUTO_INCREMENT,
+                               `address` varchar(255) DEFAULT NULL,
+                               `is_default` bit(1) DEFAULT NULL,
+                               `phone` varchar(255) DEFAULT NULL,
+                               `username` varchar(255) DEFAULT NULL,
+                               PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+INSERT INTO `sys_address` (`id`, `address`, `is_default`, `phone`, `username`) VALUES ('1','admin address',1, '18888888888', 'admin');

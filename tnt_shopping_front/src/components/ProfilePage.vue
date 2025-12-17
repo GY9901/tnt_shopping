@@ -36,6 +36,14 @@
         </div>
         <div
             class="nav-item"
+            :class="{ active: activeTab === 'address' }"
+            @click="activeTab = 'address'"
+        >
+          <el-icon><Location /></el-icon>
+          <span>地址管理 / ADDRESS</span>
+        </div>
+        <div
+            class="nav-item"
             :class="{ active: activeTab === 'about' }"
             @click="activeTab = 'about'"
         >
@@ -53,7 +61,7 @@
     <div class="content-panel">
 
       <!-- Tab 1: 个人信息 -->
-      <div v-if="activeTab === 'info'" class="panel-section fade-in">
+      <div v-if="activeTab === 'info'" class="panel-section">
         <h2 class="panel-title">ACCOUNT INFORMATION</h2>
 
         <!-- 基础信息展示 -->
@@ -105,7 +113,7 @@
       </div>
 
       <!-- Tab 2: 我的订单 -->
-      <div v-if="activeTab === 'orders'" class="panel-section fade-in">
+      <div v-if="activeTab === 'orders'" class="panel-section">
         <h2 class="panel-title">MY ORDER HISTORY</h2>
 
         <div v-if="orderList.length === 0" class="empty-state">
@@ -131,6 +139,15 @@
                   <div class="item-name">{{ item.productName }}</div>
                   <div class="item-qty">x{{ item.quantity }}</div>
                   <div class="item-price">¥{{ item.price }}</div>
+                </div>
+              </div>
+              
+              <!-- 收货地址 -->
+              <div class="order-address" v-if="order.address">
+                <div class="address-label">收货地址 / DELIVERY ADDRESS</div>
+                <div class="address-content">
+                  <div>{{ order.address }}</div>
+                  <div class="address-phone">联系电话: {{ order.phone }}</div>
                 </div>
               </div>
             </div>
@@ -159,7 +176,7 @@
       </div>
 
       <!-- Tab 3: 我的评论 -->
-      <div v-if="activeTab === 'reviews'" class="panel-section fade-in">
+      <div v-if="activeTab === 'reviews'" class="panel-section">
         <h2 class="panel-title">MY REVIEWS</h2>
 
         <div v-if="reviewList.length === 0" class="empty-state">
@@ -175,8 +192,84 @@
         </div>
       </div>
 
-      <!-- Tab 4: 关于 -->
-      <div v-if="activeTab === 'about'" class="panel-section fade-in">
+      <!-- Tab 4: 地址管理 -->
+      <div v-if="activeTab === 'address'" class="panel-section">
+        <h2 class="panel-title">ADDRESS MANAGEMENT / 地址管理</h2>
+        
+        <!-- 添加地址按钮 -->
+        <div class="action-bar">
+          <button class="add-btn" @click="openAddAddressDialog">
+            <el-icon><Plus /></el-icon>
+            添加新地址
+          </button>
+        </div>
+        
+        <!-- 地址列表 -->
+        <div class="address-list">
+          <!-- 只有当有数据时才渲染表格，避免快速布局变化 -->
+          <template v-if="addresses.length > 0">
+            <el-table :data="addresses" stripe style="width: 100%" border>
+              <el-table-column prop="id" label="ID" width="80" align="center"></el-table-column>
+              <el-table-column prop="phone" label="电话" width="150" align="center"></el-table-column>
+              <el-table-column prop="address" label="地址" min-width="300"></el-table-column>
+              <el-table-column label="默认地址" width="100" align="center">
+                <template #default="scope">
+                  <el-icon v-if="scope.row.isDefault"><Check /></el-icon>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="180" align="center">
+                <template #default="scope">
+                  <button class="btn-small btn-edit" @click="openEditAddressDialog(scope.row)">
+                    <el-icon><Edit /></el-icon>
+                    编辑
+                  </button>
+                  <button class="btn-small btn-delete" @click="deleteAddress(scope.row.id)">
+                    <el-icon><Delete /></el-icon>
+                    删除
+                  </button>
+                  <button class="btn-small btn-default" @click="setDefaultAddress(scope.row.id)" :disabled="scope.row.isDefault">
+                    设置默认
+                  </button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </template>
+          
+          <!-- 空状态 -->
+          <div v-else class="empty-state">
+            暂无地址记录，点击"添加新地址"按钮添加地址
+          </div>
+        </div>
+        
+        <!-- 地址表单弹窗 -->
+        <el-dialog
+          v-model="addressDialogVisible"
+          :title="isEditing ? '编辑地址' : '添加地址'"
+          width="500px"
+          center
+        >
+          <el-form :model="addressForm" :rules="addressRules" ref="addressFormRef" label-position="top">
+            <el-form-item label="手机号" prop="phone">
+              <el-input v-model="addressForm.phone" placeholder="请输入手机号"></el-input>
+            </el-form-item>
+            <el-form-item label="地址" prop="address">
+              <el-input type="textarea" v-model="addressForm.address" :rows="3" placeholder="请输入详细地址"></el-input>
+            </el-form-item>
+            <el-form-item>
+              <el-checkbox v-model="addressForm.isDefault">设为默认地址</el-checkbox>
+            </el-form-item>
+          </el-form>
+          <template #footer>
+            <span class="dialog-footer">
+              <el-button @click="addressDialogVisible = false">取消</el-button>
+              <el-button type="primary" @click="saveAddress">{{ isEditing ? '保存' : '添加' }}</el-button>
+            </span>
+          </template>
+        </el-dialog>
+      </div>
+      
+      <!-- Tab 5: 关于 -->
+      <div v-if="activeTab === 'about'" class="panel-section">
         <h2 class="panel-title">ABOUT TNT SPACE</h2>
         <div class="about-content">
           <p class="highlight">TEENS IN TIMES (TNT)</p>
@@ -206,8 +299,8 @@
 <script setup>
 import { ref, reactive, onMounted, getCurrentInstance } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { User, Goods, ChatDotSquare, InfoFilled, SwitchButton } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox, ElDialog, ElForm, ElFormItem, ElInput, ElButton, ElTable, ElTableColumn, ElCheckbox, ElPagination } from 'element-plus'
+import { User, Goods, ChatDotSquare, InfoFilled, SwitchButton, Location, Plus, Edit, Delete, Check } from '@element-plus/icons-vue'
 
 const { proxy } = getCurrentInstance()
 const router = useRouter()
@@ -222,6 +315,25 @@ const orderPage = ref(1)
 const orderPageSize = ref(5)
 const orderTotal = ref(0)
 const ordersLoading = ref(false)
+
+// 地址管理相关
+const addresses = ref([])
+const addressDialogVisible = ref(false)
+const isEditing = ref(false)
+const currentAddress = ref({})
+const addressFormRef = ref(null)
+
+const addressForm = reactive({
+  username: '',
+  phone: '',
+  address: '',
+  isDefault: false
+})
+
+const addressRules = {
+  phone: [{ required: true, message: '请输入手机号', trigger: 'blur' }],
+  address: [{ required: true, message: '请输入地址', trigger: 'blur' }]
+}
 
 // 密码表单 (新增 oldPassword)
 const pwdFormRef = ref(null)
@@ -271,8 +383,153 @@ const fetchData = async () => {
       const resMsg = await proxy.$request.get('/message/my', { params: { username: user.value.username } })
       if (resMsg.data.code === '200') reviewList.value = resMsg.data.data
     } catch(e) { console.error(e) }
+    
+    // 3. 获取地址列表
+    fetchAddresses()
   } else {
     router.push('/login')
+  }
+}
+
+// 获取地址列表
+const fetchAddresses = async () => {
+  try {
+    if (!user.value || !user.value.username) {
+      console.error('获取地址列表失败: 用户信息未加载')
+      return
+    }
+    const res = await proxy.$request.get('/address/list', { params: { username: user.value.username } })
+    console.log('获取地址列表响应:', res)
+    if (res.data && res.data.code === '200') {
+      addresses.value = res.data.data || []
+    } else {
+      console.error('获取地址列表失败: 响应码错误', res.data)
+    }
+  } catch(e) {
+    console.error('获取地址列表失败:', e)
+    if (e.response) {
+      console.error('响应错误:', e.response.data)
+      console.error('响应状态:', e.response.status)
+    } else if (e.request) {
+      console.error('请求错误:', e.request)
+    } else {
+      console.error('错误信息:', e.message)
+    }
+  }
+}
+
+// 打开添加地址弹窗
+const openAddAddressDialog = () => {
+  isEditing.value = false
+  addressForm.username = user.value.username
+  addressForm.phone = ''
+  addressForm.address = ''
+  addressForm.isDefault = false
+  addressDialogVisible.value = true
+}
+
+// 打开编辑地址弹窗
+const openEditAddressDialog = (address) => {
+  isEditing.value = true
+  currentAddress.value = address
+  addressForm.username = address.username
+  addressForm.phone = address.phone
+  addressForm.address = address.address
+  addressForm.isDefault = address.isDefault || false
+  addressDialogVisible.value = true
+}
+
+// 保存地址
+const saveAddress = async () => {
+  if (!addressFormRef.value) return
+  
+  addressFormRef.value.validate(async (valid) => {
+    if (valid) {
+      try {
+        if (!user.value || !user.value.username) {
+          ElMessage.error('保存地址失败: 用户信息未加载')
+          return
+        }
+        let res
+        if (isEditing.value) {
+          // 更新地址
+          res = await proxy.$request.put('/address/update', {
+            id: currentAddress.value.id,
+            ...addressForm
+          })
+        } else {
+          // 添加地址
+          res = await proxy.$request.post('/address/add', addressForm)
+        }
+        
+        if (res.data && res.data.code === '200') {
+          ElMessage.success(res.data.msg || '操作成功')
+          addressDialogVisible.value = false
+          // 延迟刷新地址列表，避免 ResizeObserver 循环
+          setTimeout(() => {
+            fetchAddresses()
+          }, 100)
+        } else {
+          ElMessage.error(res.data.msg || '操作失败')
+        }
+      } catch(e) {
+        console.error('保存地址失败:', e)
+        ElMessage.error('保存地址失败')
+      }
+    }
+  })
+}
+
+// 删除地址
+const deleteAddress = async (id) => {
+  try {
+    await ElMessageBox.confirm('确定要删除这个地址吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    const res = await proxy.$request.delete(`/address/delete/${id}`)
+    if (res.data && res.data.code === '200') {
+      ElMessage.success(res.data.msg || '删除成功')
+      // 延迟刷新地址列表，避免 ResizeObserver 循环
+      setTimeout(() => {
+        fetchAddresses()
+      }, 100)
+    } else {
+      ElMessage.error(res.data.msg || '删除失败')
+    }
+  } catch(e) {
+    if (e !== 'cancel') {
+      console.error('删除地址失败:', e)
+      ElMessage.error('删除地址失败')
+    }
+  }
+}
+
+// 设置默认地址
+const setDefaultAddress = async (id) => {
+  try {
+    if (!user.value || !user.value.username) {
+      ElMessage.error('设置默认地址失败: 用户信息未加载')
+      return
+    }
+    const res = await proxy.$request.post('/address/setDefault', {
+      id: id,
+      username: user.value.username
+    })
+    if (res.data && res.data.code === '200') {
+      ElMessage.success(res.data.msg || '设置成功')
+      // 延迟刷新地址列表，避免 ResizeObserver 循环
+      setTimeout(() => {
+        fetchAddresses()
+      }, 100)
+    } else {
+      ElMessage.error(res.data.msg || '设置失败')
+    }
+  } catch(e) {
+    console.error('设置默认地址失败:', e)
+    ElMessage.error('设置默认地址失败')
   }
 }
 
@@ -566,6 +823,32 @@ onMounted(() => {
 .item-qty { width: 50px; text-align: center; color: #999; }
 .item-price { width: 80px; text-align: right; }
 
+/* 订单地址样式 */
+.order-address {
+  margin-top: 15px;
+  padding-top: 15px;
+  border-top: 1px dashed #EEE;
+}
+
+.address-label {
+  font-size: 12px;
+  font-weight: bold;
+  color: #999;
+  margin-bottom: 8px;
+}
+
+.address-content {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #333;
+}
+
+.address-phone {
+  margin-top: 5px;
+  color: #666;
+  font-weight: bold;
+}
+
 .order-footer {
   border-top: 1px solid #EEE;
   padding: 10px 20px;
@@ -654,6 +937,106 @@ onMounted(() => {
   justify-content: center;
 }
 
+/* 地址管理样式 */
+.action-bar {
+  margin-bottom: 20px;
+  text-align: right;
+}
+
+.add-btn {
+  background: #FAD02C;
+  color: #000;
+  border: 2px solid #000;
+  padding: 10px 20px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s;
+}
+
+.add-btn:hover {
+  background: #000;
+  color: #FAD02C;
+}
+
+.address-list {
+  margin-top: 20px;
+}
+
+:deep(.address-list .el-table) {
+  border: 2px solid #000;
+  border-radius: 0;
+}
+
+:deep(.address-list .el-table__header-wrapper th) {
+  background: #000;
+  color: #FAD02C;
+  font-weight: bold;
+  border-bottom: 2px solid #FFF;
+}
+
+:deep(.address-list .el-table__body-wrapper tr) {
+  border-bottom: 1px solid #EEE;
+}
+
+:deep(.address-list .el-table__body-wrapper tr:hover) {
+  background: #FFFDF0;
+}
+
+:deep(.address-list .el-table__body-wrapper td) {
+  border-bottom: 1px solid #EEE;
+}
+
+.btn-small {
+  padding: 4px 8px;
+  margin: 0 4px;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  border: 1px solid #000;
+  border-radius: 0;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-edit {
+  background: #FFF;
+  color: #000;
+}
+
+.btn-edit:hover {
+  background: #FAD02C;
+}
+
+.btn-delete {
+  background: #FFF;
+  color: #F56C6C;
+}
+
+.btn-delete:hover {
+  background: #F56C6C;
+  color: #FFF;
+}
+
+.btn-default {
+  background: #FFF;
+  color: #67C23A;
+}
+
+.btn-default:hover:not(:disabled) {
+  background: #67C23A;
+  color: #FFF;
+}
+
+.btn-default:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 :deep(.tnt-pagination.el-pagination.is-background .el-pager li:not(.is-disabled).is-active) {
   background-color: #000 !important;
   color: #FAD02C !important;
@@ -674,5 +1057,23 @@ onMounted(() => {
   border: 1px solid #000;
   border-radius: 0;
   color: #000;
+}
+
+:deep(.el-dialog__header) {
+  background: #000;
+  color: #FAD02C;
+  border-bottom: 2px solid #FAD02C;
+}
+
+:deep(.el-dialog__title) {
+  font-weight: bold;
+}
+
+:deep(.el-dialog__footer) {
+  border-top: 1px solid #EEE;
+}
+
+:deep(.el-form-item__label) {
+  font-weight: bold;
 }
 </style>

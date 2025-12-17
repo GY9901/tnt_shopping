@@ -16,5 +16,7 @@ export default {
   text-align: center;
   color: #2c3e50;
   margin-top: 60px;
+  background-color: #FFFDF0; /* 统一背景色 */
+  min-height: 100vh;
 }
 </style>

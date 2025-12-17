@@ -5,6 +5,8 @@ import com.example.tnt_shopping_background.entity.Order;
 import com.example.tnt_shopping_background.entity.OrderItem;
 import com.example.tnt_shopping_background.repository.CartItemRepository;
 import com.example.tnt_shopping_background.repository.OrderRepository;
+import com.example.tnt_shopping_background.repository.ProductRepository;
+import com.example.tnt_shopping_background.entity.Product;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -30,6 +32,9 @@ public class OrderController {
 
     @Autowired
     private CartItemRepository cartItemRepository;
+    
+    @Autowired
+    private ProductRepository productRepository;
 
     // 获取用户的订单列表 (分页版)
     @GetMapping("/list")
@@ -78,6 +83,13 @@ public class OrderController {
             order.setTotalAmount(totalAmount);
             order.setStatus("PAYED");
             order.setPaymentMethod(paymentMethod);
+            // 添加地址和电话信息
+            if (payload.containsKey("address")) {
+                order.setAddress((String) payload.get("address"));
+            }
+            if (payload.containsKey("phone")) {
+                order.setPhone((String) payload.get("phone"));
+            }
 
             String orderNo = "TNT" + new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + (int)(Math.random() * 1000);
             order.setOrderNo(orderNo);
@@ -92,6 +104,21 @@ public class OrderController {
 
                 oi.setOrder(order);
                 orderItems.add(oi);
+                
+                // 扣减商品库存
+                Integer productId = (Integer) itemMap.get("productId");
+                Integer quantity = (Integer) itemMap.get("quantity");
+                Product product = productRepository.findById(productId)
+                    .orElseThrow(() -> new RuntimeException("商品不存在: " + productId));
+                
+                // 检查库存是否充足
+                if (product.getStock() < quantity) {
+                    throw new RuntimeException("商品库存不足: " + product.getName());
+                }
+                
+                // 更新库存
+                product.setStock(product.getStock() - quantity);
+                productRepository.save(product);
             }
             order.setItems(orderItems);
 
@@ -131,10 +158,26 @@ public class OrderController {
     
     // 删除订单
     @DeleteMapping("/admin/delete/{id}")
+    @Transactional // 开启事务
     public Result<?> deleteOrder(@PathVariable Integer id) {
         try {
             // 查找订单
             Order order = orderRepository.findById(id).orElseThrow(() -> new RuntimeException("订单不存在"));
+            
+            // 检查订单状态，只有未发货的订单才能回滚库存
+            // 假设 PENDING 和 PAYED 状态为未发货，其他状态为已处理
+            if ("PAYED".equals(order.getStatus()) || "PENDING".equals(order.getStatus())) {
+                // 遍历订单商品，回滚库存
+                for (OrderItem item : order.getItems()) {
+                    // 根据商品名称查询商品
+                    Product product = productRepository.findByName(item.getProductName());
+                    if (product != null) {
+                        // 回滚库存
+                        product.setStock(product.getStock() + item.getQuantity());
+                        productRepository.save(product);
+                    }
+                }
+            }
             
             // 删除订单
             orderRepository.delete(order);

@@ -21,6 +21,10 @@ public class Order {
 
     // 新增字段：支付方式
     private String paymentMethod;
+    // 新增字段：收货地址
+    private String address;
+    // 新增字段：联系电话
+    private String phone;
 
     @Column(name = "create_time", insertable = false, updatable = false)
     private Date createTime;
