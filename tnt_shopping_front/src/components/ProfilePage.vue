@@ -153,11 +153,21 @@
             </div>
 
             <div class="order-footer">
-              <div class="order-date">{{ formatTime(order.createTime) }}</div>
-              <div class="order-total">
-                TOTAL: <span>¥{{ order.totalAmount }}</span>
-              </div>
-            </div>
+          <div class="order-date">{{ formatTime(order.createTime) }}</div>
+          <div class="order-actions">
+            <button 
+              v-if="order.status === 'PAYED'" 
+              class="btn-cancel-order"
+              @click="cancelOrder(order.id)"
+            >
+              <el-icon><Delete /></el-icon>
+              取消订单
+            </button>
+          </div>
+          <div class="order-total">
+            TOTAL: <span>¥{{ order.totalAmount }}</span>
+          </div>
+        </div>
           </div>
         </div>
 
@@ -559,6 +569,30 @@ const handleOrderPageChange = (val) => {
   fetchOrders()
 }
 
+// 取消订单
+const cancelOrder = async (orderId) => {
+  try {
+    await ElMessageBox.confirm('确定要取消这个订单吗？', '提示', {
+      confirmButtonText: '确定',
+      cancelButtonText: '取消',
+      type: 'warning'
+    })
+    
+    const res = await proxy.$request.put(`/order/cancel/${orderId}`)
+    if (res.data.code === '200') {
+      ElMessage.success('订单取消成功')
+      fetchOrders() // 刷新订单列表
+    } else {
+      ElMessage.error(res.data.msg || '订单取消失败')
+    }
+  } catch (e) {
+    if (e !== 'cancel') {
+      console.error('取消订单失败:', e)
+      ElMessage.error('取消订单失败')
+    }
+  }
+}
+
 // 修改密码
 const updatePassword = () => {
   if (!pwdFormRef.value) return
@@ -856,8 +890,30 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   background: #FAFAFA;
+  gap: 20px;
 }
 .order-date { font-size: 12px; color: #999; }
+.order-actions {
+  display: flex;
+  gap: 10px;
+}
+.btn-cancel-order {
+  background: #FFF;
+  color: #F56C6C;
+  border: 2px solid #F56C6C;
+  padding: 6px 12px;
+  font-weight: bold;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+  font-size: 12px;
+}
+.btn-cancel-order:hover {
+  background: #F56C6C;
+  color: #FFF;
+}
 .order-total { font-weight: 900; font-size: 18px; }
 .order-total span { color: #FAD02C; -webkit-text-stroke: 0.5px #000; }
 

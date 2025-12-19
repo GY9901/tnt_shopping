@@ -275,6 +275,9 @@
                 <template v-if="scope.row.status === 'COMPLETED'">
                   <span class="status-tag completed">完成</span>
                 </template>
+                <template v-else-if="scope.row.status === 'CANCELLED'">
+                  <span class="status-tag cancel">订单已取消</span>
+                </template>
                 <template v-else>
                   <button class="tnt-btn-sm" @click="shipOrder(scope.row)">发货</button>
                 </template>
@@ -1229,6 +1232,12 @@ export default {
 .status-tag.completed {
   background-color: #D4EDDA;
   color: #155724;
+  border: 1px solid #C3E6CB;
+}
+
+.status-tag.cancel {
+  background-color: #ec886a;
+  color: #fdfdfd;
   border: 1px solid #C3E6CB;
 }
 

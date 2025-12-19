@@ -211,11 +211,12 @@
 
 <script setup>
 import { ref, onMounted, getCurrentInstance, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { CaretRight, Select, Plus } from '@element-plus/icons-vue'
 
 const router = useRouter()
+const route = useRoute()
 
 const { proxy } = getCurrentInstance()
 
@@ -225,6 +226,23 @@ const loading = ref(false)
 const currentPage = ref(1)
 const pageSize = ref(4) // 每页4个
 const total = ref(0)
+
+// 在组件挂载时检查 URL 参数
+onMounted(() => {
+  // 检查 URL 中的分类和页码参数
+  const categoryParam = route.query.category
+  const pageParam = route.query.page
+  
+  if (categoryParam && ['棉花娃娃', '小卡'].includes(categoryParam)) {
+    currentCategory.value = categoryParam
+  }
+  
+  if (pageParam && !isNaN(Number(pageParam))) {
+    currentPage.value = Number(pageParam)
+  }
+  
+  fetchProducts()
+})
 
 // 立即购买相关
 const paymentVisible = ref(false)
@@ -357,9 +375,16 @@ const buyNow = (item) => {
   paymentVisible.value = true
 }
 
-// 跳转到商品详情页
+// 跳转到商品详情页，传递当前分类和页码信息
 const goToProductDetail = (item) => {
-  router.push({ name: 'ProductDetail', params: { id: item.id } })
+  router.push({ 
+    name: 'ProductDetail', 
+    params: { id: item.id },
+    query: {
+      category: currentCategory.value,
+      page: currentPage.value
+    }
+  })
 }
 
 // 确认支付
@@ -384,7 +409,7 @@ const handlePay = async () => {
   const user = JSON.parse(userStr)
   
   // 构造后端需要的订单数据
-  const orderData = {
+  const orderData = { 
     username: user.username,
     totalAmount: totalPrice.value,
     paymentMethod: payMethod.value.toUpperCase(),
@@ -423,10 +448,6 @@ const handlePay = async () => {
     isPaying.value = false
   }
 }
-
-onMounted(() => {
-  fetchProducts()
-})
 </script>
 
 <style scoped>

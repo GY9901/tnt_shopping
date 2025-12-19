@@ -54,7 +54,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import IndexPage from '../components/IndexPage.vue'
 import CategoryPage from '../components/CategoryPage.vue'
 import CartPage from '../components/CartPage.vue'
@@ -62,9 +62,18 @@ import ProfilePage from '../components/ProfilePage.vue'
 import AdminProfilePage from '../components/AdminProfilePage.vue'
 
 const router = useRouter()
+const route = useRoute()
 const username = ref('User')
 const userRole = ref('User')
 const currentTab = ref('Index') // 默认首页
+
+// 监听路由参数变化，设置默认标签页
+onMounted(() => {
+  const tabParam = route.query.tab
+  if (tabParam && ['Index', 'Category', 'Cart', 'Profile'].includes(tabParam)) {
+    currentTab.value = tabParam
+  }
+})
 
 // 计算当前应该渲染哪个组件
 const currentComponent = computed(() => {

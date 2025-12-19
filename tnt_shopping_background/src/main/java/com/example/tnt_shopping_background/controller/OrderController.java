@@ -188,4 +188,41 @@ public class OrderController {
             return Result.error("500", "删除订单失败: " + e.getMessage());
         }
     }
+    
+    // 取消订单
+    @PutMapping("/cancel/{id}")
+    @Transactional // 开启事务
+    public Result<?> cancelOrder(@PathVariable Integer id) {
+        try {
+            // 查找订单
+            Order order = orderRepository.findById(id).orElseThrow(() -> new RuntimeException("订单不存在"));
+            
+            // 检查订单状态，只有未发货的订单才能取消
+            if (!"PAYED".equals(order.getStatus()) && !"PENDING".equals(order.getStatus())) {
+                return Result.error("400", "当前订单状态不允许取消");
+            }
+            
+            // 更新订单状态为 CANCELLED
+            order.setStatus("CANCELLED");
+            
+            // 遍历订单商品，回滚库存
+            for (OrderItem item : order.getItems()) {
+                // 根据商品名称查询商品
+                Product product = productRepository.findByName(item.getProductName());
+                if (product != null) {
+                    // 回滚库存
+                    product.setStock(product.getStock() + item.getQuantity());
+                    productRepository.save(product);
+                }
+            }
+            
+            // 保存更新后的订单
+            orderRepository.save(order);
+            
+            return Result.success(null);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return Result.error("500", "取消订单失败: " + e.getMessage());
+        }
+    }
 }
